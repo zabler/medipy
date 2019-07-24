@@ -1,15 +1,26 @@
-from Module.hrvparameter.hrvclass import hrvparameter
-from Module.movesense2python import mo2pclass
+from wda.hrvparameter.hrvclass import hrvparameter
+from wda.movesense2python import mo2pclass
+from wda.helper import loggertool
 from matplotlib import pyplot as plt
 
-from Module.helper import loggertool
+'''
+MOVESENSE HR HRVCALCULATOR
+
+(0) Logger Initiieren
+
+(1) Erstellung eines Movesense Objektes aus HR Messung
+
+(2) Berechnung verschiedener HRV Parameter inkl. Logging
+
+(3) Features plotten
+
+'''
 
 # Init Logger
 log = loggertool.initlog('movesense_HR_HRVCalculator')
 
 # Get movesense Data nicht HR sondern Rzacken als Differenzwerte
 movesenseobject = mo2pclass.mo2pconverter('heartrate')
-# print(movesenseobject.rr)
 
 # Berechnung verschiedeneer HRV Parameter
 hrv = hrvparameter(movesenseobject.rr)

@@ -1,17 +1,17 @@
-from Module.movisens2python import m2pclass
+from wda.movisens2python import m2pclass
 import numpy as np
 from matplotlib import pyplot as plt
 
 '''
-BIOPLOT
+POSTERPLOT MULTIPLE
 
-(1) Erstellung eines Movisens Objekts mit bestimmtem EMG Signal
+(1) Erstellung eines Movisens Objekts mit bestimmtem Signal
 
 (2) Signalwerte mit LsbValue und Baseline umrechnen
 
 (3) Bereiche um Seizures berechnen
 
-(3) Signalstücke jeweils einzeln Plotten
+(4) Signalstücke jeweils einzeln Plotten
 
 '''
 

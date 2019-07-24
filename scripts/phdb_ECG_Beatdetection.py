@@ -1,9 +1,24 @@
-from Module.phdb2python import phdb2pyclass
-from Module.rdetections.dectclass import*
-from Module.algana import dect_comparer
+from wda.phdb2python import phdb2pyclass
+from wda.rdetections.dectclass import pantompkins
+from wda.algana import dect_comparer
 from matplotlib import pyplot as plt
 import numpy as np
 import time
+
+'''
+MOVESENSE ECG BEATDETECTION
+
+(1) Erstellung eines PHDB Objektes aus ECG Messung und HR
+
+(2) R-Zacken Detektion mit ausgewähltem Algorithmus und Zeiberechnung
+
+(3) Zeitvektor für RR-Intervallplot berechnen
+
+(4) Signale plotten
+
+(5) Algorithmus Bewertung auf Genauigkeit
+
+'''
 
 # Get Data
 phdbdata = phdb2pyclass.phdb2pconverter()
@@ -23,13 +38,6 @@ end = time.time()
 print('________________________________________________________________')
 print(f"Algorithm needs {end-start}s for detection\n")
 
-# Get Signalvalues for Rpeaks
-rpeaks_y = []
-for idx, val in enumerate(ecg_signal):
-    if idx in rpeaks_x:
-        rpeaks_y.append(val)
-rpeaks_y = np.asarray(rpeaks_y)
-
 # Calculate Time Vektor for RR
 trr = []
 trr.append(rr[0])
@@ -39,7 +47,7 @@ for k in range(1, len(rr)):
 '''Testplot'''
 plt.figure(1, figsize=(16, 9))
 plt.plot(ecg_signal, 'b', label='ECG')
-plt.plot(rpeaks_x, rpeaks_y, 'r+', label='Annotiert')
+plt.plot(rpeaks_x, ecg_signal[rpeaks_x], 'r+', label='Annotiert')
 plt.xlabel(f'Time in Samples @ Sampling frequency {fs} Hz')
 plt.ylabel('Amplitude in mV')
 plt.title('ECG Signal Single Lead',

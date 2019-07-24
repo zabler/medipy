@@ -1,10 +1,27 @@
-from Module.movesense2python import mo2pclass
-from Module.rdetections.dectclass import*
+from wda.movesense2python import mo2pclass
+from wda.rdetections.dectclass import pantompkins
 from matplotlib import pyplot as plt
 import numpy as np
-from Module.hrvparameter.hrvclass import hrvparameter
-from Module.movesense2python import mo2pclass
-from Module.helper import loggertool
+from wda.hrvparameter.hrvclass import hrvparameter
+from wda.movesense2python import mo2pclass
+from wda.helper import loggertool
+
+'''
+MOVESENSE ECG HRVCALCULATOR
+
+(0) Logger Initiieren
+
+(1) Erstellung eines Movesense Objektes aus ECG Messung
+
+(2) R-Zacken Detektion mit ausgewähltem Algorithmus
+
+(3) Berechnung verschiedener HRV Parameter inkl. Logging
+
+(4) Zeitvektor für RR-Intervallplot berechnen
+
+(5) Signale und Features plotten
+
+'''
 
 # Init Logger
 log = loggertool.initlog('movesense_ECG_HRVCalculator')
@@ -38,24 +55,16 @@ for k in hrv.csi_cvi_features:
 for k in hrv.poincare_plot_features:
     loggertool.log(str(k) + ': ' + str(hrv.poincare_plot_features[k]), log)
 
-
-# Get Signalvalues for Rpeaks
-rpeaks_y = []
-for idx, val in enumerate(ecg_signal):
-    if idx in rpeaks_x:
-        rpeaks_y.append(val)
-rpeaks_y = np.asarray(rpeaks_y)
-
 # Calculate Time Vektor for RR
 trr = []
 trr.append(rr[0])
 for k in range(1, len(rr)):
     trr.append(rr[k] + trr[k - 1])
 
-'''Testplot'''
+#Plots
 plt.figure(1, figsize=(16, 9))
 plt.plot(ecg_signal, 'b', label='ECG')
-plt.plot(rpeaks_x, rpeaks_y, 'r+', label='Annotiert')
+plt.plot(rpeaks_x, ecg_signal[rpeaks_x], 'r+', label='Annotiert')
 plt.xlabel(f'Time in Samples @ Sampling frequency {fs} Hz')
 plt.ylabel('Amplitude in mV')
 plt.title('ECG Signal Single Lead detected',
@@ -67,10 +76,12 @@ plt.xlabel(f'Zeit in ms')
 plt.ylabel('RR-Intervalle in ms')
 plt.title('Rr Intervall time series', fontweight="bold")
 
+plt.draw()
+
 hrv.plot_distrib()
 hrv.plot_poincare()
 hrv.plot_psd()
 hrv.plot_timeseries()
 
-plt.draw()
+
 plt.show()
