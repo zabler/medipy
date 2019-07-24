@@ -1,0 +1,68 @@
+import m2pclass
+import numpy as np
+from matplotlib import pyplot as plt
+
+'''
+BIOPLOT
+
+(1) Erstellung eines Movisens Objekts mit bestimmtem EMG Signal
+
+(2) Signalwerte mit LsbValue und Baseline umrechnen
+
+(3) Bereiche um Seizures berechnen
+
+(3) Signalstücke jeweils einzeln Plotten
+
+'''
+
+# Input: Anzahl der Messungen, Signalart
+anzahl_measurements = 1
+channelname = 'EMG4'
+
+# For Schleife über Anzahl der Messungen
+for k in range(0, anzahl_measurements):
+    # Movisensobjekt einlesen mit geünschter Signalart 
+    movisensobject = m2pclass.m2pconverter(
+        channelname, 'seizures', showtree=True)
+    # Signalparameter wählen und Signalwerte berechnen
+    channel = movisensobject.getentry(channelname)
+    channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
+    fs = channel.sampleRate
+    seizures = movisensobject.getentry('seizures').event
+    # Bereiche um Seizures ausschneiden
+    for k in seizures:
+        plt.plot(channel.signal[k-2000:k+2000], label=channelname)
+        plt.plot(2000, channel.signal[k], 'r+', label='Seizure')
+        plt.title('Title', fontweight="bold")
+        plt.xlabel(f'[s] bei Abtastung mit {fs} Hz')
+        plt.ylabel(f'Amplitude in {channel.unit}')
+        plt.legend()
+
+plt.show()
+
+
+# Zuerst alle einlesen oder immer Datenbearbeitung vorher?
+# Statisches in File oder Dynamisches in Variable Zwischenspeichern der Daten um Seizure
+# benötigt erneutes wiedereinlesen, dynamisch benötigt immer den ganzen prozess
+
+
+# # Plot erstellen
+# plt.plot(channel.signal, label='Channel')
+
+# # Marker
+# plt.plot(seizures, channel.signal[seizures],
+#          'r+', label='Marker')
+
+# # Settings
+# plt.title('Title', fontweight="bold")
+# plt.xlabel(f'[s] bei Abtastung mit {fs} Hz')
+# plt.ylabel(f'Amplitude in {channel.unit}')
+
+# # Bereiche 10-20 Sekunden
+# #plt.xlim(20000 / (1 / int(fs)), 30000 / (1 / int(fs)))
+# plt.xlim(seizures[2]-1000, seizures[2]+1000)
+# plt.legend()
+# plt.show()
+#und dynamischem Variablenamen#dynamic = {}
+    # dynamic[f'movisensobject{k}'] = m2pclass.m2pconverter(
+    #     channelname, 'seizures', showtree=True)

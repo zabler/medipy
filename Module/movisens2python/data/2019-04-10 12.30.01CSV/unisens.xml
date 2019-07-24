@@ -1,0 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<unisens comment="TestdatenComment" duration="297.0" measurementId="2019-04-10 12.30.01" timestampStart="2019-04-10T12:30:01.046" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.unisens.org/unisens2.0 http://www.unisens.org/unisens2.0/unisens.xsd" xmlns="http://www.unisens.org/unisens2.0">
+  <customAttributes>
+    <customAttribute key="sensorLocation" value="chest" />
+    <customAttribute key="gender" value="M" />
+    <customAttribute key="sensorType" value="EcgMove4" />
+    <customAttribute key="weight" value="75.0" />
+    <customAttribute key="sensorVersion" value="1.12.0" />
+    <customAttribute key="personId" value="Jon Doe" />
+    <customAttribute key="sectorCount" value="863" />
+    <customAttribute key="age" value="42.0" />
+    <customAttribute key="sensorSerialNumber" value="02760" />
+    <customAttribute key="height" value="180.0" />
+  </customAttributes>
+  <signalEntry adcResolution="16" baseline="2048" comment="ecg" contentClass="ecg" dataType="int16" id="ecg.csv" lsbValue="0.0026858184230029595" sampleRate="1024" unit="mV">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="ecg" />
+  </signalEntry>
+  <signalEntry adcResolution="32" comment="press" contentClass="press" dataType="int32" id="press.csv" lsbValue="0.125" sampleRate="8" unit="Pa">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="press" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="temp" contentClass="temp" dataType="int16" id="temp.csv" lsbValue="0.1" sampleRate="1" unit="Grad Celsius">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="temp" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="charging" contentClass="charging" dataType="int16" id="charging.csv" lsbValue="1" sampleRate="0.016666666666666666" unit="">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="charging" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="stateOfCharge" contentClass="stateOfCharge" dataType="int16" id="stateofcharge.csv" lsbValue="1" sampleRate="0.016666666666666666" unit="%">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="stateOfCharge" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="angularRate" contentClass="angularRate" dataType="int16" id="angularrate.csv" lsbValue="0.07000000066757203" sampleRate="64" unit="dps">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="angularRateX" />
+    <channel name="angularRateY" />
+    <channel name="angularRateZ" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="acc" contentClass="acc" dataType="int16" id="acc.csv" lsbValue="0.00048828125" sampleRate="64" unit="g">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="accX" />
+    <channel name="accY" />
+    <channel name="accZ" />
+  </signalEntry>
+  <valuesEntry adcResolution="16" comment="bpmBxb_live" contentClass="bpmBxb_live" dataType="int16" id="bpmbxb_live.csv" lsbValue="1" sampleRate="1024" unit="1/min">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="bpmBxb" />
+  </valuesEntry>
+  <valuesEntry adcResolution="16" comment="nn_live" contentClass="nn_live" dataType="int16" id="nn_live.csv" lsbValue="1" sampleRate="1024" unit="ms">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="nn" />
+  </valuesEntry>
+  <signalEntry adcResolution="16" comment="hr_live" contentClass="hr_live" dataType="int16" id="hr_live.csv" lsbValue="1" sampleRate="0.016666666666666666" unit="ms">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="hr" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="stepCount_live" contentClass="stepCount_live" dataType="int16" id="stepcount_live.csv" lsbValue="1" sampleRate="0.016666666666666666" unit="steps">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="stepCount" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="tempMean_live" contentClass="tempMean_live" dataType="int16" id="tempmean_live.csv" lsbValue="0.1" sampleRate="0.016666666666666666" unit="">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="tempMean" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="movementAcceleration_live" contentClass="movementAcceleration_live" dataType="int16" id="movementacceleration_live.csv" lsbValue="0.00390625" sampleRate="0.016666666666666666" unit="g">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="movementAcceleration" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="hrvIsValid_live" contentClass="hrvIsValid_live" dataType="int16" id="hrvisvalid_live.csv" lsbValue="1" sampleRate="0.016666666666666666" unit="bool">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="hrvIsValid" />
+  </signalEntry>
+  <signalEntry adcResolution="16" comment="hrvRmssd_live" contentClass="hrvRmssd_live" dataType="int16" id="hrvrmssd_live.csv" lsbValue="1" sampleRate="0.016666666666666666" unit="ms">
+    <csvFileFormat decimalSeparator="." separator=";" />
+    <channel name="hrvRmssd" />
+  </signalEntry>
+  <eventEntry commentLength="10" id="marker.csv" sampleRate="64" typeLength="1">
+    <csvFileFormat decimalSeparator="." separator=";" />
+  </eventEntry>
+  <eventEntry id="artifact.csv" sampleRate="1024">
+    <csvFileFormat decimalSeparator="." separator=";" />
+  </eventEntry>
+</unisens>
