@@ -1,7 +1,9 @@
 # Wearbale_Data_Analysis
 Data Analysis Algorithms for medical Wearables written in Python
 
-**Moduls**
+**wda**
+
+wda Package contains the following moduls:
 
 - movisens2python
 - phdb2python
@@ -13,6 +15,7 @@ Data Analysis Algorithms for medical Wearables written in Python
 
 **Scripts**
 
+example codes using wda package
 
 - movisensRcompare
 - phdb2Rcompare

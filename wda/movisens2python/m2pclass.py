@@ -7,6 +7,11 @@ import xml.etree.ElementTree as et
 from tkinter import filedialog, Tk
 import time
 
+# Only for Example
+import m2pclass
+import numpy as np
+from matplotlib import pyplot as plt
+
 '''BASECLASS'''
 
 
@@ -387,6 +392,46 @@ def m2pconverter(*signaltypes, **keywords):
     return movisensobject
 
 
-'''DEFAULT'''
 if __name__ == '__main__':
-    movisensobject = m2pconverter(showtree=True)
+    
+    '''
+    EXAMPLE
+
+    (1) Erstellung eines Movisens Objekts mit allen Signalen, die verfügbar sind
+
+    (2) ECG Signalwerte mit LsbValue und Baseline umrechnen (Vorsicht nicht überall vorhanden)
+
+    (3) ECG Signal, Abtastfrequenz, R-Zacken, Marker und Artefakte auslesen
+
+    (4) Signal plotten
+
+    '''
+
+    # Objekt erstellen, mit Signaltyp ECG
+    movisensobject = m2pclass.m2pconverter(showtree=True)
+
+    # SignalEntry ECG und ValuesEntry NN_Live auslesen
+    ecg = movisensobject.getentry('ecg')
+    ecg_signal = (ecg.signal - int(ecg.baseline)) * float(ecg.lsbValue)
+    ecg_fs = ecg.sampleRate
+    rpeaks = movisensobject.getentry('nn_live').values
+
+    # Plot erstellen
+
+    # ECG
+    plt.plot(ecg_signal, label='ECG Signal')
+
+    # R-Zacken
+    plt.plot(rpeaks[:, 0], ecg_signal[rpeaks[:, 0]],
+             'r+', label='R-Zacken')
+   
+    # Settings
+    plt.title('ECG Single Lead movisens ecgMove4 Chest', fontweight="bold")
+    plt.xlabel(f'Samples @ {ecg_fs} ')
+    plt.ylabel(f'Amplitude in {ecg.unit} ')
+
+    # Bereiche 10-20 Sekunden
+    plt.xlim(10 / (1 / int(ecg_fs)), 20 / (1 / int(ecg_fs)))
+    plt.legend()
+    plt.show()
+

@@ -1,6 +1,11 @@
 import hrvanalysis as hrv
 import numpy as np
 
+# Only for Example
+from scipy.misc import electrocardiogram
+from matplotlib import pyplot as plt
+from wda.rdetections.dectclass import hamilton
+
 
 class hrvparameter():
     def __init__(self, rr):
@@ -45,3 +50,29 @@ class hrvparameter():
 
     def plot_poincare(self):
         hrv.plot_poincare(self.nn)
+
+if __name__ == "__main__":
+    
+    '''
+    EXAMPLE
+
+    (1) Erstellung eines PHDB Data Objekts mit Signaltyp ECG
+
+    (2) ECG Signal, Abtastfrequenz und R-Zacken auslesen
+
+    (3) Signal plotten
+
+    '''
+    
+    signal = electrocardiogram()
+    fs = 360
+   
+    rpeaks_x, rr = hamilton(signal, fs).detect()
+    hrvvals = hrvparameter(rr)
+    hrvvals.normalize()
+    hrvvals.calcparamter()
+    hrvvals.plot_distrib()
+    hrvvals.plot_poincare()
+    hrvvals.plot_psd()
+    hrvvals.plot_timeseries()
+    plt.show()

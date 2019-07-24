@@ -1,5 +1,5 @@
-from Module.movesense2python import mo2pclass
-from Module.rdetections.dectclass import*
+from wda.movesense2python import mo2pclass
+from wda.rdetections.dectclass import pantompkins
 from matplotlib import pyplot as plt
 import numpy as np
 

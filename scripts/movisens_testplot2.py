@@ -1,4 +1,4 @@
-import m2pclass
+from Module.movisens2python import m2pclass
 import numpy as np
 from matplotlib import pyplot as plt
 
