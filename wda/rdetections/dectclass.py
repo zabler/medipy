@@ -5,6 +5,12 @@ import math
 import peakutils as pu
 from time import gmtime, strftime
 
+#Only for Example
+from scipy.misc import electrocardiogram
+from matplotlib import pyplot as plt
+from matplotlib import style
+style.use('fivethirtyeight')
+
 
 
 class rdectoren():
@@ -440,55 +446,51 @@ class pantompkins(rdectoren):
         return self.rpeaks, self.rrintervall
         
 
-# if __name__ == "__main__":
-    #     from scipy.misc import electrocardiogram
-    # from dectclass import*
-    # from matplotlib import pyplot as plt
-    # # 'from matplotlib import style
-    # # style.use('fivethirtyeight')'
-    # import numpy as np
+if __name__ == "__main__":
 
-    # '''Testsignal'''
-    # # Hardcoded Testsignal
-    # signal = electrocardiogram()
-    # fs = 360
+    '''
+    EXAMPLE
 
-    # '''Testdetection'''
-    # # Change Comment for other detectors
-    # rpeaks_x, rr = hamilton(signal, fs).detect()
-    # # rpeaks_x, rr = pantompkins(signal, fs).detect()
-    # # rpeaks_x, rr = ownr(signal, fs).detect()
-    # # rpeaks_x, rr = skipi(signal, fs).detect()
-    # # rpeaks_x, rr = peakutils(signal, fs).detect()
+    (1) Nutzen eines Standard ECG-Signals aus Scipy Package
 
-    # # Get Signalvalues for Rpeaks
-    # rpeaks_y = []
-    # for idx, val in enumerate(signal):
-    #     if idx in rpeaks_x:
-    #         rpeaks_y.append(val)
-    # rpeaks_y = np.asarray(rpeaks_y)
+    (2) R-Zacken mit Hamilton Algorithmus berechnen
 
-    # # Calculate Time Vektor for RR
-    # trr = []
-    # trr.append(rr[0])
-    # for k in range(1, len(rr)):
-    #     trr.append(rr[k] + trr[k - 1])
+    (3) Zeitvektor für RR-Intervalle berechnen
 
+    (4) Plot der Signale
 
-    # '''Testplot'''
-    # plt.figure(1, figsize=(16, 9))
-    # plt.plot(signal, 'b', label='ECG')
-    # plt.plot(rpeaks_x, rpeaks_y, 'r+', label='Annotiert')
-    # plt.xlabel(f'Time in Samples @ Sampling frequency {fs} Hz')
-    # plt.ylabel('Amplitude in mV')
-    # plt.title('ECG Signal Single Lead', fontweight="bold")
+    '''
 
-    # plt.figure(2, figsize=(16, 9))
-    # plt.plot(trr, rr, 'g')
-    # plt.xlabel(f'Time in ms')
-    # plt.ylabel('RR-Intervalle in ms')
-    # plt.title('Rr Intervall time series', fontweight="bold")
+    # Hardcoded Testsignal
+    ecg_signal = electrocardiogram()
+    fs = 360
 
-    # plt.legend()
-    # plt.draw()
-    # plt.show()
+    # R-Zacken Detections
+    # Change Comment for other detectors
+    rpeaks_x, rr = hamilton(ecg_signal, fs).detect()
+    # rpeaks_x, rr = pantompkins(ecg_signal, fs).detect()
+    # rpeaks_x, rr = ownr(ecg_signal, fs).detect()
+    # rpeaks_x, rr = skipi(ecg_signal, fs).detect()
+    # rpeaks_x, rr = peakutils(ecg_signal, fs).detect()
+
+    # Calculate Time Vektor for RR
+    trr = []
+    trr.append(rr[0])
+    for k in range(1, len(rr)):
+        trr.append(rr[k] + trr[k - 1])
+
+    #Plots
+    plt.figure(1, figsize=(16, 9))
+    plt.plot(ecg_signal, 'b', label='ECG')
+    plt.plot(rpeaks_x, ecg_signal[rpeaks_x], 'r+', label='Annotiert')
+    plt.xlabel(f'Time in Samples @ Sampling frequency {fs} Hz')
+    plt.ylabel('Amplitude in mV')
+    plt.title('ECG Signal Single Lead', fontweight="bold")
+
+    plt.figure(2, figsize=(16, 9))
+    plt.plot(trr, rr, 'g')
+    plt.xlabel(f'Time in ms')
+    plt.ylabel('RR-Intervalle in ms')
+    plt.title('Rr Intervall time series', fontweight="bold")
+
+    plt.show()

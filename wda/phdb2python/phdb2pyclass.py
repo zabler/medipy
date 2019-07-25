@@ -11,11 +11,7 @@ class phdb2python():
     '''
     Klasse zum einlesen und bereitstellen von PHDB-Datensätzen
     '''
-    # Verbesserungspotential:
-    # - Generalisieren: Datenformate der WDFB Datenbank
-    # - Anstatt ADC gain, ADC res.. Eigenes Dictionary Einführen
-    # EXAMPLE SCHREIBEN wie mov2python
-
+   
     def __init__(self):
         ''' Datenobjekt PHDB Daten '''
         self.filename = None
@@ -120,7 +116,7 @@ if __name__ == "__main__":
     # Objekt erstellen, mit Signaltyp ECG
     phdbdata = phdb2pconverter(showtree=False)
 
-    # SignalEntry ECG und ValuesEntry NN_Live auslesen
+    # ECG und zusätzliche Parameter auslesen
     ecg_signal = phdbdata.signal
     ecg_fs = phdbdata.fs
     rpeaks = phdbdata.marker
@@ -136,12 +132,11 @@ if __name__ == "__main__":
 
     # Settings
     title = phdbdata.filepfad.rsplit('/')[-1] + ' ' + phdbdata.name
-    plt.title(f'ECG Single Lead {title}', fontweight="bold")
+    plt.title(f'ECG Single Lead PHDB {title}', fontweight="bold")
     plt.xlabel(f'Samples @ {ecg_fs}')
     plt.ylabel(f'Magnitude in {einheit}')
 
     # Bereiche 10-20 Sekunden
     # plt.xlim(10 / (1 / int(ecg_fs)), 20 / (1 / int(ecg_fs)))
-    plt.legend()
     plt.show()
 

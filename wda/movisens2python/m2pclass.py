@@ -407,7 +407,7 @@ if __name__ == '__main__':
     '''
 
     # Objekt erstellen, mit Signaltyp ECG
-    movisensobject = m2pclass.m2pconverter(showtree=True)
+    movisensobject = m2pconverter(showtree=True)
 
     # SignalEntry ECG und ValuesEntry NN_Live auslesen
     ecg = movisensobject.getentry('ecg')

@@ -56,21 +56,28 @@ if __name__ == "__main__":
     '''
     EXAMPLE
 
-    (1) Erstellung eines PHDB Data Objekts mit Signaltyp ECG
+    (1) Laden eines ECG-Signal aus einer Library
 
-    (2) ECG Signal, Abtastfrequenz und R-Zacken auslesen
+    (2) R-Zacken Detektion mit Hamiltonalgorithmus
 
-    (3) Signal plotten
+    (3) HRV Parameter Calculation
+
+    (4) HRV Parameter Plotten
 
     '''
-    
+    # Harcoded Signal aus Lib
     signal = electrocardiogram()
     fs = 360
    
+    # R-Zacken Detektion mit Hamiltonalgorithmus
     rpeaks_x, rr = hamilton(signal, fs).detect()
+
+    # HRV Parameter Calculation
     hrvvals = hrvparameter(rr)
     hrvvals.normalize()
     hrvvals.calcparamter()
+
+    # Plots
     hrvvals.plot_distrib()
     hrvvals.plot_poincare()
     hrvvals.plot_psd()

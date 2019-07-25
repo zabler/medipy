@@ -74,7 +74,26 @@ def mo2pconverter(*signaltypes):
 
 
 if __name__ == '__main__':
+     '''
+    EXAMPLE
+
+    (1) Movesense Object erstellen
+
+    (2) Movesense HR Datei auswählen
+
+    (3) RR Reader Movesense liest HR Daten ein
+
+    (4) Print der RR-Intervalle
+
+    '''
+    #Movesense Object erstellen
     movesenseobject = movesense2python()
+
+    #Movesense HR Datei auswählen
     movesenseobject.choosedata()
+
+    #RR Reader Movesense liest HR Daten ein
     movesenseobject.rrreader()
+    
+    #Print der RR-Intervalle
     print(movesenseobject.rr)
