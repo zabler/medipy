@@ -1,10 +1,10 @@
+from wda.hrvparameter.hrvclass import hrvparameter
+from wda.helper import loggertool
 from wda.movesense2python import mo2pclass
 from wda.rdetections.dectclass import pantompkins
 from matplotlib import pyplot as plt
 import numpy as np
-from wda.hrvparameter.hrvclass import hrvparameter
-from wda.movesense2python import mo2pclass
-from wda.helper import loggertool
+
 
 '''
 MOVESENSE ECG HRVCALCULATOR

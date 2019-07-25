@@ -74,7 +74,7 @@ def mo2pconverter(*signaltypes):
 
 
 if __name__ == '__main__':
-     '''
+    '''
     EXAMPLE
 
     (1) Movesense Object erstellen
@@ -94,6 +94,6 @@ if __name__ == '__main__':
 
     #RR Reader Movesense liest HR Daten ein
     movesenseobject.rrreader()
-    
+
     #Print der RR-Intervalle
     print(movesenseobject.rr)
