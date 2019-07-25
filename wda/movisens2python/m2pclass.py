@@ -8,7 +8,6 @@ from tkinter import filedialog, Tk
 import time
 
 # Only for Example
-import m2pclass
 import numpy as np
 from matplotlib import pyplot as plt
 
