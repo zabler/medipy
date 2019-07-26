@@ -42,7 +42,7 @@ class movisens2python():
         self.readinlist = []
         self.defaultcontents = ['acc', 'angularrate', 'artifact', 'bpmbxb_live', 'charging', 'ecg', 'hr_live', 'hrvisvalid_live', 'hrvrmssd_live', 'marker',
                                 'movementacceleration_live', 'nn_live', 'press', 'stateofcharge', 'stepcount_live', 'temp', 'tempmean_live',
-                                'EMG1','EMG2','EMG3','EMG4','EMG5','EMG6','EMG7','EMG8','EEG3','EEG5','ECG6','seizures','m6seizures','bicepsRseizures']
+                                'EMG1','EMG2','EMG3','EMG4','EMG5','EMG6','EMG7','EMG8','EEG3','EEG5','ECG6','seizures','m6seizures','m6emgseizures','bicepsseizures']
 
     def movisens_choosedata(self, extension='.xml', datatype='unisens'):
         '''Funktion zum Auswählen der Daten'''
