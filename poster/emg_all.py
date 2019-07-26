@@ -36,27 +36,27 @@ for k in range(0, anzahl_measurements):
     if k == 0:
         # Movisensobjekt einlesen mit allen Signalarten einlesen
         movisensobject = m2pclass.m2pconverter(showtree=True)
-        seizures = movisensobject.getentry('seizures').event
+        seizures = movisensobject.getentry('m6seizures').event
         # Nur die EMG Kanäle von PLUX26R nehmen
         for index, channelname in enumerate(channelliste1):
             # Signalparameter wählen und Signalwerte berechnen
             channel = movisensobject.getentry(channelname)
             channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
             fs = channel.sampleRate
-            plt.plot(channel.signal[seizures[11]-100:seizures[11]+600], label=labelliste1[index])
+            plt.plot(channel.signal[seizures[0]-100:seizures[0]+600], label=labelliste1[index])
             
            
     elif k==1:
         # Movisensobjekt einlesen mit allen Signalarten einlesen
         movisensobject = m2pclass.m2pconverter(showtree=True)
-        seizures = movisensobject.getentry('seizures').event
+        seizures = movisensobject.getentry('m6seizures').event
         # Nur die EMG Kanäle von PLUX227L nehmen
         for index, channelname in enumerate(channelliste2):
             # Signalparameter wählen und Signalwerte berechnen
             channel = movisensobject.getentry(channelname)
             channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
             fs = channel.sampleRate
-            plt.plot(channel.signal[seizures[11]-100:seizures[11]+600], label=labelliste2[index])
+            plt.plot(channel.signal[seizures[0]-100:seizures[0]+600], label=labelliste2[index])
             
 plt.plot(100, 0, 'r', label='Seizure')
 plt.axvline(x=100,color='r')
@@ -67,7 +67,7 @@ plt.ylim(-1.5,1.5)
 plt.ylabel('amplitude [mV]',fontname="Arial")
 plt.grid(b=True,which='major',axis='both')
 #plt.legend(fontsize='xx-small',bbox_to_anchor=(0,-0.52,1,0.4), loc="upper left",mode='expand',borderaxespad=0, ncol=7)
-plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.4), loc="lower left",mode='expand',borderaxespad=0, ncol=7)
+plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=4)
 newtime = ['-100','0','100','200','300','400','500','600']
 plt.gca().set_xticklabels(newtime)
 plt.savefig('/Users/nicolaszabler/Desktop/emg_all.png',dpi=300,transparent=False,bbox_inches='tight')    
