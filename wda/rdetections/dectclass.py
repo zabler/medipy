@@ -8,8 +8,7 @@ from time import gmtime, strftime
 #Only for Example
 from scipy.misc import electrocardiogram
 from matplotlib import pyplot as plt
-from matplotlib import style
-style.use('fivethirtyeight')
+
 
 
 
