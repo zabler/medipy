@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 '''
-POSTERPLOT MULTIPLE
+POSTERPLOT EMG
 
 (1) Erstellung eines Movisens Objekts mit bestimmtem Signal
 
@@ -17,7 +17,7 @@ POSTERPLOT MULTIPLE
 
 # Input: Anzahl der Messungen, Signalart
 anzahl_measurements = 1
-channelname = 'EMG4'
+channelname = 'EMG2'
 
 # For Schleife über Anzahl der Messungen
 for k in range(0, anzahl_measurements):
@@ -30,15 +30,19 @@ for k in range(0, anzahl_measurements):
     fs = channel.sampleRate
     seizures = movisensobject.getentry('seizures').event
     # Bereiche um Seizures ausschneiden
-    for k in seizures:
-        plt.plot(channel.signal[k-2000:k+2000], label=channelname)
-        plt.plot(2000, channel.signal[k], 'r+', label='Seizure')
-        plt.title('Title', fontweight="bold")
+    #fig = plt.figure(k)
+    for i in seizures:
+        fig = plt.figure(i)
+        plt.plot(channel.signal[i-2000:i+2000], label=channelname)
+        plt.plot(2000, channel.signal[i], 'r+', label='Seizure')
+        plt.title(channelname, fontweight="bold")
         plt.xlabel(f'[s] bei Abtastung mit {fs} Hz')
         plt.ylabel(f'Amplitude in {channel.unit}')
         plt.legend()
 
 plt.show()
+
+
 
 
 # Zuerst alle einlesen oder immer Datenbearbeitung vorher?
