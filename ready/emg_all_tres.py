@@ -43,7 +43,7 @@ for k in range(0, anzahl_measurements):
             channel = movisensobject.getentry(channelname)
             channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
             fs = channel.sampleRate
-            plt.plot(channel.signal[seizures[0]-100:seizures[0]+600], label=labelliste1[index])
+            plt.plot(channel.signal[seizures[0]-100:seizures[0]+600], label=labelliste1[index],linewidth=0.7)
             
            
     elif k==1:
@@ -56,22 +56,24 @@ for k in range(0, anzahl_measurements):
             channel = movisensobject.getentry(channelname)
             channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
             fs = channel.sampleRate
-            plt.plot(channel.signal[seizures[0]-100:seizures[0]+600], label=labelliste2[index])
+            plt.plot(channel.signal[seizures[0]-100:seizures[0]+600], label=labelliste2[index], linewidth=0.7)
             
-plt.plot(100, 0, 'r', label='Seizure')
-plt.axvline(x=100,color='r')
+
+plt.plot(100, 0, 'r--', label='Onset')
+plt.axvline(x=100,color='r',linestyle='--')
 #plt.title('Different EMGs of one Seizure',fontname="Arial", fontweight="bold",loc='left') #fontsize=12
+#plt.plot(0,0,color='#808080',label=f'spread SC of n={counter} myoclonic seizures')
 plt.xlabel('time [ms]',fontname="Arial")
 plt.xlim(0, 700)
 plt.ylim(-1.5,1.5)
-plt.ylabel('amplitude [mV]',fontname="Arial")
+plt.ylabel('emg voltage [mV] (single seizure multiple channels)',fontname="Arial")
 plt.grid(b=True,which='major',axis='both')
 #plt.legend(fontsize='xx-small',bbox_to_anchor=(0,-0.52,1,0.4), loc="upper left",mode='expand',borderaxespad=0, ncol=7)
 plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=4)
 newtime = ['-100','0','100','200','300','400','500','600']
 plt.gca().set_xticklabels(newtime)
-plt.savefig('/Users/nicolaszabler/Desktop/emg_all.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/emg_all.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/emg_all_tres.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/emg_all_tres.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 plt.show()
 
 
