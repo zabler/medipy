@@ -1,72 +1,74 @@
 from wda.movisens2python import m2pclass
 import numpy as np
 from matplotlib import pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
 
 '''
-POSTERPLOT EMG
+ACHq<ey<s
 
-(1) Erstellung eines Movisens Objekts mit bestimmtem Signal
+(1) Erstellung eines Movisens Objekts mit ACM Signal
 
-(2) Signalwerte mit LsbValue und Baseline umrechnen
+(2) Signalwerte mit LsbValue umrechnen
 
-(3) Bereiche um Seizures berechnen
+(3) Bereich um Seizure berechnen
 
-(4) Signalstücke jeweils einzeln Plotten
+(4) Signalstücke der Subchannels jeweils einzeln Plotten
 
 '''
 
-# Input: Anzahl der Messungen, Signalart
-anzahl_measurements = 1
-channelname = 'EMG2'
+# Input: Signalart
+channelname = 'acc'
+
+# Figur erstellen
+fig = plt.figure()
 
 # For Schleife über Anzahl der Messungen
-for k in range(0, anzahl_measurements):
-    # Movisensobjekt einlesen mit geünschter Signalart 
-    movisensobject = m2pclass.m2pconverter(
-        channelname, 'seizures', showtree=True)
-    # Signalparameter wählen und Signalwerte berechnen
-    channel = movisensobject.getentry(channelname)
-    channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
-    fs = channel.sampleRate
-    seizures = movisensobject.getentry('seizures').event
-    # Bereiche um Seizures ausschneiden
-    #fig = plt.figure(k)
-    for i in seizures:
-        fig = plt.figure(i)
-        plt.plot(channel.signal[i-2000:i+2000], label=channelname)
-        plt.plot(2000, channel.signal[i], 'r+', label='Seizure')
-        plt.title(channelname, fontweight="bold")
-        plt.xlabel(f'[s] bei Abtastung mit {fs} Hz')
-        plt.ylabel(f'Amplitude in {channel.unit}')
-        plt.legend()
+
+# Movisensobjekt einlesen mit gewünschter Signalart 
+movisensobject = m2pclass.m2pconverter(
+    channelname, 'seizures', showtree=True)
+
+# Signalparameter wählen und Signalwerte berechnen
+channel = movisensobject.getentry(channelname)
+fs = channel.sampleRate
+le = len(channel.signal)
+
+# Subchannels auslesen
+accX = channel.signal[0:le:3] * float(channel.lsbValue)
+accY = channel.signal[1:le:3] * float(channel.lsbValue)
+accZ = channel.signal[2:le:3] * float(channel.lsbValue)
+
+# Marker wählen / Freqverhältnis Samplerate und Eventrate ist bei beiden gleich
+seizures = movisensobject.getentry('seizures').event
+anfall = seizures[4] #Seizure 3533865 in M3
+
+# Bereiche um Seizures ausschneiden
+plt.plot(accX[anfall-16:anfall+48], label='ACC X', linewidth=0.7, color='black')
+plt.plot(accY[anfall-16:anfall+48], label='ACC Y', linewidth=0.7, color='blue')
+plt.plot(accZ[anfall-16:anfall+48], label='ACC Z', linewidth=0.7, color='green')
+   
+
+# Plot Seizure Onset
+plt.plot(16, 0, 'r--', label='Onset')
+plt.axvline(x=16,color='r',linestyle='--')
+
+# Plot Settings
+#plt.title('Different EMGs of one Seizure',fontname="Arial", fontweight="bold",loc='left')
+plt.xlabel('time [ms]',fontname="Arial")
+plt.xlim(0, 64)
+plt.ylim(0,1)
+plt.ylabel('3D ACC (chest) [g]',fontname="Arial")
+plt.grid(b=True,which='major',axis='both')
+plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=4)
+
+# Beschriftung X-Achse neu
+newtime = ['-250','0','250','500','750']
+plt.gca().set_xticks([0,16,32,48,64])
+plt.gca().set_xticklabels(newtime)
+
+# Bilder speichern
+plt.savefig('/Users/nicolaszabler/Desktop/acm_chest.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/acm_chest.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 
 plt.show()
-
-
-
-
-# Zuerst alle einlesen oder immer Datenbearbeitung vorher?
-# Statisches in File oder Dynamisches in Variable Zwischenspeichern der Daten um Seizure
-# benötigt erneutes wiedereinlesen, dynamisch benötigt immer den ganzen prozess
-
-
-# # Plot erstellen
-# plt.plot(channel.signal, label='Channel')
-
-# # Marker
-# plt.plot(seizures, channel.signal[seizures],
-#          'r+', label='Marker')
-
-# # Settings
-# plt.title('Title', fontweight="bold")
-# plt.xlabel(f'[s] bei Abtastung mit {fs} Hz')
-# plt.ylabel(f'Amplitude in {channel.unit}')
-
-# # Bereiche 10-20 Sekunden
-# #plt.xlim(20000 / (1 / int(fs)), 30000 / (1 / int(fs)))
-# plt.xlim(seizures[2]-1000, seizures[2]+1000)
-# plt.legend()
-# plt.show()
-#und dynamischem Variablenamen#dynamic = {}
-    # dynamic[f'movisensobject{k}'] = m2pclass.m2pconverter(
-    #     channelname, 'seizures', showtree=True)
