@@ -1,13 +1,11 @@
 from wda.movisens2python import m2pclass
 import numpy as np
 from matplotlib import pyplot as plt
-# from matplotlib import style
-# style.use('fivethirtyeight')
 import matplotlib
 matplotlib.use('TkAgg')
 
 '''
-EMG ALL 
+EMG ALL ONE
 
 (1) Einlesen aller von PLUX26R in M6 und trennen nach EMG Signalen
 
@@ -57,21 +55,28 @@ for k in range(0, anzahl_measurements):
             channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
             fs = channel.sampleRate
             plt.plot(channel.signal[seizures[0]-20:seizures[0]+80], label=labelliste2[index],linewidth=0.7)
-            
+
+# Plot Seizure Onset            
 plt.plot(20, 0, 'r--', label='Onset')
 plt.axvline(x=20,color='r',linestyle='--')
+
+# Plot Settings
 #plt.title('Different EMGs of one Seizure',fontname="Arial", fontweight="bold",loc='left') #fontsize=12
 plt.xlabel('time [ms]',fontname="Arial")
 plt.xlim(0, 100)
 plt.ylim(-1.5,1.5)
-plt.ylabel('emg voltage [mV] (single seizure multiple channels)',fontname="Arial")
+plt.ylabel('emg voltage (different muscles) [mV]',fontname="Arial")
 plt.grid(b=True,which='major',axis='both')
 #plt.legend(fontsize='xx-small',bbox_to_anchor=(0,-0.52,1,0.4), loc="upper left",mode='expand',borderaxespad=0, ncol=7)
 plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=4)
+
+# Beschriftung X-Achse neu
 newtime = ['-20','0','20','40','60','80']
 plt.gca().set_xticklabels(newtime)
-plt.savefig('/Users/nicolaszabler/Desktop/emg_all.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/emg_all.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+
+# Bilder speichern
+plt.savefig('/Users/nicolaszabler/Desktop/emg_all_one.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/emg_all_one.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 plt.show()
 
 
