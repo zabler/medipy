@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 '''
-ACHq<ey<s
+ACM Raw Chest
 
 (1) Erstellung eines Movisens Objekts mit ACM Signal
 
@@ -31,7 +31,7 @@ movisensobject = m2pclass.m2pconverter(
 
 # Signalparameter wählen und Signalwerte berechnen
 channel = movisensobject.getentry(channelname)
-fs = channel.sampleRate
+fs = int(channel.sampleRate)
 le = len(channel.signal)
 
 # Subchannels auslesen
@@ -41,7 +41,7 @@ accZ = channel.signal[2:le:3] * float(channel.lsbValue)
 
 # Marker wählen / Freqverhältnis Samplerate und Eventrate ist bei beiden gleich
 seizures = movisensobject.getentry('seizures').event
-anfall = seizures[4] #Seizure 3533865 in M3
+anfall = seizures[1] #Seizure 1 in M2
 
 # Bereiche um Seizures ausschneiden
 plt.plot(accX[anfall-16:anfall+48], label='ACC X', linewidth=0.7, color='black')
@@ -50,14 +50,14 @@ plt.plot(accZ[anfall-16:anfall+48], label='ACC Z', linewidth=0.7, color='green')
    
 
 # Plot Seizure Onset
-plt.plot(16, 0, 'r--', label='Onset')
+plt.plot(16, 0, 'r--', label='seizure onset')
 plt.axvline(x=16,color='r',linestyle='--')
 
 # Plot Settings
 #plt.title('Different EMGs of one Seizure',fontname="Arial", fontweight="bold",loc='left')
 plt.xlabel('time [ms]',fontname="Arial")
 plt.xlim(0, 64)
-plt.ylim(0,1)
+plt.ylim(-1.5,1.5)
 plt.ylabel('3D ACC (chest) [g]',fontname="Arial")
 plt.grid(b=True,which='major',axis='both')
 plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=4)
@@ -68,7 +68,7 @@ plt.gca().set_xticks([0,16,32,48,64])
 plt.gca().set_xticklabels(newtime)
 
 # Bilder speichern
-plt.savefig('/Users/nicolaszabler/Desktop/acm_chest.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/acm_chest.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/acm_raw_chest.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/acm_raw_chest.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 
 plt.show()

@@ -3,10 +3,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
 matplotlib.use('TkAgg')
+import math
 
 
 '''
-EMG ALL BICEPS ONE
+EMG Feature Bicepsr
 
 (1) Einlesen EMG Signal Biceps r und Anfallsmarker
 
@@ -29,8 +30,9 @@ labelliste1 = ['Biceps r']
 # Fig für alle Signale
 fig = plt.figure(frameon=True,figsize=(5,4))
 
-#Mittelwertbilder
+#Statistik
 summe = np.zeros(100)
+varliste =[]
 counter=0
 
 # For Schleife über Anzahl der Messungen
@@ -40,47 +42,69 @@ for k in range(0, anzahl_measurements):
     movisensobject = m2pclass.m2pconverter(showtree=True)
     #Anfallsmarker einlesen
     seizures = movisensobject.getentry('bicepsseizures').event
+    eR = int(movisensobject.getentry('seizures').sampleRate)
     # Nur EMG8 des PLUX L nehmen
     channel = movisensobject.getentry(channelname)
     # Signalparameter wählen und Signalwerte berechnen
-    fs = channel.sampleRate
+    fs = int(channel.sampleRate)
     channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
+    #Frequenzverhätnis Samplerate zu Eventrate
+    ver = fs/eR
+    # Bereiche um Seizures ausschneiden
+    size = 0.02 * eR #Size in Sekunden
     # For Schleife durch Anfälle
     for anfall in seizures:
-        plotsignal = channel.signal[anfall-20:anfall+80]
+        plotsignal = channel.signal[int((anfall-size)*ver):int((anfall+4*size)*ver)]
         plotsignal = (plotsignal-(np.min(plotsignal)))/(np.max(plotsignal)-np.min(plotsignal)) #Comment for Absolut Average
+        varliste.append(list(plotsignal))
         summe = summe + plotsignal
         plt.plot(plotsignal,linewidth=0.5,color='#808080') #label=labelliste1[index])
         counter+=1
 
 # Mittelwertbildung
-summe = summe/counter
+mittel = summe/counter
+
+# Streuungsbildung
+var = np.zeros(100)
+
+for ind in range(0, len(var)):
+        varsumme = 0
+        for k in varliste:
+                a = (k[ind]-mittel[ind])**2
+                varsumme = varsumme + a 
+        var[ind] = math.sqrt(varsumme/(counter-1)) # Bessels Correction
 
 # Plot Mittelwert
-plt.plot(summe,color='black',linewidth=2.0,label=f'relative average emg ictal')
+plt.plot(mittel,color='black',linewidth=2.0,label=f'relative arithmetic mean')
+
+# Plot Var
+plt.plot(mittel+var,color='black',linestyle='--',linewidth=1.5,label=f'standard deviation')
+plt.plot(mittel-var,color='black',linestyle='--',linewidth=1.5)
 
 # Plot Label for eech single Signal 
-plt.plot(0,0,color='#808080',label=f'spread emg voltage of n={counter} myoclonic seizures')
+plt.plot(0,0,color='#808080',label=f'spread EMG of n={counter} myoclonic seizures')
 
 # Plot for Seizure Onset
-plt.plot(20, 0, 'r--', label='Onset')
-plt.axvline(x=20,color='r',linestyle='--')
+plt.plot(size*ver, 0, 'r--', label='seizure onset')
+plt.axvline(x=size*ver,color='r',linestyle='--')
 
 #Plot Settings
 #plt.title('Biceps r on different seizrues',fontname="Arial", fontweight="bold",loc='left') #fontsize=12
 plt.xlabel('time [ms]',fontname="Arial")
-plt.ylabel('equalized emg voltage (biceps r) [%]',fontname="Arial") # Change Name for Absolut
+plt.ylabel('relative EMG (biceps r) [%]',fontname="Arial") # Change Name for Absolut
 plt.xlim(0, 100)
+plt.ylim(0,1)
 #plt.ylim(-1.5,1.5) # Comment for Absolut
 plt.grid(b=True,which='major',axis='both')
 plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=2)
 
-
 # Beschriftung X-Achse neu
 newtime = ['-20','0','20','40','60','80']
 plt.gca().set_xticklabels(newtime)
+newwhy = ['0','20','40','60','80','100']
+plt.gca().set_yticklabels(newwhy)
 
 # Bilder speichern
-plt.savefig('/Users/nicolaszabler/Desktop/emg_biceps.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/emg_biceps.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/emg_feature_bicepsr.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/emg_feature_bicepsr.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 plt.show()

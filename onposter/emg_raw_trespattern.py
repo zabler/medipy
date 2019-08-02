@@ -5,17 +5,17 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 '''
-EMG ALL ONE
+EMG RAW TRES PATTERN
 
 (1) Einlesen aller von PLUX26R in M6 und trennen nach EMG Signalen
 
 (2) Signalwerte mit LsbValue und Baseline umrechnen
 
-(3) Bereiche um Seizure 74910858 (PLUX26R) ausschneiden
+(3) Bereiche um Seizure 74910858 und folgendes Spikes (PLUX26R) ausschneiden
 
 (4) Signalstücke jeweils einzeln Plotten
 
-Wiederholen für PLUX27L in M6 und Seizure 74911806
+Wiederholen für PLUX27L in M6 und Seizure 74911806 und folgende Spikes
 
 '''
 
@@ -34,49 +34,49 @@ for k in range(0, anzahl_measurements):
     if k == 0:
         # Movisensobjekt einlesen mit allen Signalarten einlesen
         movisensobject = m2pclass.m2pconverter(showtree=True)
-        seizures = movisensobject.getentry('m6emgseizures').event
+        seizures = movisensobject.getentry('m6seizures').event
         # Nur die EMG Kanäle von PLUX26R nehmen
         for index, channelname in enumerate(channelliste1):
             # Signalparameter wählen und Signalwerte berechnen
             channel = movisensobject.getentry(channelname)
             channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
             fs = channel.sampleRate
-            plt.plot(channel.signal[seizures[0]-20:seizures[0]+80], label=labelliste1[index],linewidth=0.7)
+            plt.plot(channel.signal[seizures[0]-100:seizures[0]+600], label=labelliste1[index],linewidth=0.7)
             
            
     elif k==1:
         # Movisensobjekt einlesen mit allen Signalarten einlesen
         movisensobject = m2pclass.m2pconverter(showtree=True)
-        seizures = movisensobject.getentry('m6emgseizures').event
+        seizures = movisensobject.getentry('m6seizures').event
         # Nur die EMG Kanäle von PLUX227L nehmen
         for index, channelname in enumerate(channelliste2):
             # Signalparameter wählen und Signalwerte berechnen
             channel = movisensobject.getentry(channelname)
             channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbValue)
             fs = channel.sampleRate
-            plt.plot(channel.signal[seizures[0]-20:seizures[0]+80], label=labelliste2[index],linewidth=0.7)
-
-# Plot Seizure Onset            
-plt.plot(20, 0, 'r--', label='Onset')
-plt.axvline(x=20,color='r',linestyle='--')
+            plt.plot(channel.signal[seizures[0]-100:seizures[0]+600], label=labelliste2[index], linewidth=0.7)
+            
+# Plot Seizure Onset
+plt.plot(100, 0, 'r--', label='Onset')
+plt.axvline(x=100,color='r',linestyle='--')
 
 # Plot Settings
-#plt.title('Different EMGs of one Seizure',fontname="Arial", fontweight="bold",loc='left') #fontsize=12
+#plt.title('Different EMGs of one Seizure',fontname="Arial", fontweight="bold",loc='left')
 plt.xlabel('time [ms]',fontname="Arial")
-plt.xlim(0, 100)
+plt.xlim(0, 700)
 plt.ylim(-1.5,1.5)
-plt.ylabel('emg voltage (different muscles) [mV]',fontname="Arial")
+plt.ylabel('EMG (different muscles) [mV]',fontname="Arial")
 plt.grid(b=True,which='major',axis='both')
-#plt.legend(fontsize='xx-small',bbox_to_anchor=(0,-0.52,1,0.4), loc="upper left",mode='expand',borderaxespad=0, ncol=7)
 plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=4)
 
 # Beschriftung X-Achse neu
-newtime = ['-20','0','20','40','60','80']
+newtime = ['-100','0','100','200','300','400','500','600']
 plt.gca().set_xticklabels(newtime)
 
 # Bilder speichern
-plt.savefig('/Users/nicolaszabler/Desktop/emg_all_one.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/emg_all_one.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/emg_raw_trespattern.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/emg_raw_trespattern.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+
 plt.show()
 
 
