@@ -57,7 +57,7 @@ for k in range(0, anzahl_measurements):
             plt.plot(channel.signal[seizures[0]-100:seizures[0]+600], label=labelliste2[index], linewidth=0.7)
             
 # Plot Seizure Onset
-plt.plot(100, 0, 'r--', label='Onset')
+plt.plot(100, 0, 'r--', label='seizure')
 plt.axvline(x=100,color='r',linestyle='--')
 
 # Plot Settings

@@ -1,25 +1,26 @@
 from wda.movisens2python import m2pclass
-from wda.rdetections import dectclass
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
 matplotlib.use('TkAgg')
 
 '''
-ECG Raw Artifact
+EEG Raw f8t4
 
 (1) Erstellung eines Movisens Objekts mit ACM Signal
 
 (2) Signalwerte mit LsbValue umrechnen
 
 (3) Bereich um Seizure berechnen
+M1 EEG5 #4 
+M1 EEG5 #8
 
 (4) Signalstück einzeln Plotten
 
 '''
 
 # Input: Signalart
-channelname = 'ecg'
+channelname = 'EEG3'
 
 # Figur erstellen
 fig = plt.figure()
@@ -35,40 +36,38 @@ channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbVal
 
 # Seizures: Anfall wählen
 seizures = movisensobject.getentry('seizures').event
-anfall = seizures[7] #Seizure 7 in M6
+anfall = seizures[4] # Seizure 4 in M1
 eR = int(movisensobject.getentry('seizures').sampleRate)
 
 #Frequenzverhätnis Samplerate zu Eventrate
 ver = fs/eR
-size = 0.5 * eR #Size in Sekunden
+
+# Bereiche um Seizures ausschneiden
+size = 2 * eR #Size in Sekunden
 
 # Bereiche um Seizures ausschneiden
 # x samples im Signal mit fs Abtastfrequenz = (anfall-size) *ver = (anfall*eR - T*eR) * fs/eR = (anfall-T)*fs
-ana = channel.signal[int((anfall-size)*ver):int((anfall+2*size)*ver)]
-rpeaks_x, rr = dectclass.skipi(ana, fs).detect()
-plt.plot(channel.signal[int((anfall-size)*ver):int((anfall+2*size)*ver)], label='ECG Einthoven II with seizure artifact', linewidth=0.7, color='black')
-plt.plot(rpeaks_x,ana[rpeaks_x],'x',color='red',label='Detected R-Peaks')   
-
+plt.plot(channel.signal[int((anfall-size)*ver):int((anfall+1.5*size)*ver)], label='EEG F8-T4 ictal', linewidth=0.7, color='black')
+   
 # Plot Seizure Onset
 plt.plot(size*ver, 0, 'r--', label='seizure onset')
 plt.axvline(x=size*ver,color='r',linestyle='--')
 
 # Plot Settings
-#plt.title('Title',fontname="Arial", fontweight="bold",loc='left')
+#plt.title('Ttile',fontname="Arial", fontweight="bold",loc='left')
 plt.xlabel('time [ms]',fontname="Arial")
-plt.xlim(0, 384)
-#plt.ylim(0,1)
-plt.ylabel('ECG Einthoven II (chest) [mV]',fontname="Arial")
+plt.xlim(0, 5000)
+plt.ylim(-40,40)
+plt.ylabel('EEG (F8-T4) [µV]',fontname="Arial")
 plt.grid(b=True,which='major',axis='both')
 plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=4)
 
-# Beschriftung X-Achse neu
-newtime = ['-500','-250','0','250','500','750','1000']
-plt.gca().set_xticks([0,64,128,192,256,320,384])
+#Beschriftung X-Achse neu
+newtime = ['-2000','-1000','0','1000','2000','3000']
 plt.gca().set_xticklabels(newtime)
 
 # Bilder speichern
-plt.savefig('/Users/nicolaszabler/Desktop/ecg_raw_artifact.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/ecg_raw_artifact.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/eeg_raw_f8t4.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/eeg_raw_f8t4.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 
 plt.show()

@@ -1,4 +1,5 @@
 from wda.movisens2python import m2pclass
+from wda.rdetections import dectclass
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
@@ -32,8 +33,6 @@ size = 0.5*eR
 
 for index, anfall in enumerate(seizures):
     fig = plt.figure(anfall)
-    test1 = int(anfall-(size*ver))
-    test2 = int(anfall+(size*ver))
     plt.plot(channel.signal[int(anfall-(size*ver)):int(anfall+(2*size*ver))],label=f'Seizure #{index} Index {seizures[index]}')
     plt.axvline(x=size*ver,color='r',linestyle='--')
     plt.plot(size*ver, 0, 'r--', label='Onset')
