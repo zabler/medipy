@@ -116,7 +116,7 @@ plt.axvline(x=0,color='r',linestyle='--') #Osec bei Onset
 #Plot Settings
 #plt.title('Biceps r on different seizrues',fontname="Arial", fontweight="bold",loc='left') #fontsize=12
 plt.xlabel('time [s]',fontname="Arial")
-plt.ylabel('relative HR [%]',fontname="Arial")
+plt.ylabel('spread HR',fontname="Arial")
 plt.xlim(-60, 60)
 plt.ylim(0,1)
 plt.grid(b=True,which='major',axis='both')

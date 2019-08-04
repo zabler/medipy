@@ -75,7 +75,7 @@ for ind in range(0, len(var)):
         var[ind] = math.sqrt(varsumme/(counter-1)) # Bessels Correction
 
 # Plot Mittelwert
-plt.plot(mittel,color='black',linewidth=2.0,label=f'relative arithmetic mean')
+plt.plot(mittel,color='black',linewidth=2.0,label=f'arithmetic mean')
 
 # Plot Var
 plt.plot(mittel+var,color='black',linestyle='--',linewidth=1.5,label=f'standard deviation')
@@ -91,7 +91,7 @@ plt.axvline(x=size*ver,color='r',linestyle='--')
 #Plot Settings
 #plt.title('Biceps r on different seizrues',fontname="Arial", fontweight="bold",loc='left') #fontsize=12
 plt.xlabel('time [ms]',fontname="Arial")
-plt.ylabel('relative EMG (biceps r) [%]',fontname="Arial") # Change Name for Absolut
+plt.ylabel('spread EMG (biceps r)',fontname="Arial") # Change Name for Absolut
 plt.xlim(0, 100)
 plt.ylim(0,1)
 #plt.ylim(-1.5,1.5) # Comment for Absolut

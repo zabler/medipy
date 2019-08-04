@@ -9,7 +9,7 @@ lookforECG
 '''
 
 # Input: Signalart    
-channelname = 'ecg'
+channelname = 'ECG6'
 
 # Movisensobjekt einlesen mit geünschter Signalart 
 movisensobject = m2pclass.m2pconverter(

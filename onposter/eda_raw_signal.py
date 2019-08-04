@@ -54,7 +54,7 @@ plt.axvline(x=size*ver,color='r',linestyle='--')
 plt.xlabel('time [s]',fontname="Arial")
 plt.xlim(0, 800)
 plt.ylim(2,5)
-plt.ylabel('skin conductance (palm) [µS]',fontname="Arial")
+plt.ylabel('skin conductance (thenar) [µS]',fontname="Arial")
 plt.grid(b=True,which='major',axis='both')
 plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=2)
 

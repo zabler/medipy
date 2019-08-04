@@ -47,7 +47,7 @@ size = 2 * eR #Size in Sekunden
 
 # Bereiche um Seizures ausschneiden
 # x samples im Signal mit fs Abtastfrequenz = (anfall-size) *ver = (anfall*eR - T*eR) * fs/eR = (anfall-T)*fs
-plt.plot(channel.signal[int((anfall-size)*ver):int((anfall+1.5*size)*ver)], label='EEG F8-T4 ictal', linewidth=0.7, color='black')
+plt.plot(channel.signal[int((anfall-size)*ver):int((anfall+1.5*size)*ver)], label='EEG F8-T4', linewidth=0.7, color='black')
    
 # Plot Seizure Onset
 plt.plot(size*ver, 0, 'r--', label='seizure onset')

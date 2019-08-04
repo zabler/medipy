@@ -93,7 +93,7 @@ for ind in range(0, len(var)):
         var[ind] = math.sqrt(varsumme/(counter-1)) # Bessels Correction
 
 #Plot Mittelwert
-plt.plot(mittel,color='black',linewidth=2.0,label=f'relative arithmetic mean')
+plt.plot(mittel,color='black',linewidth=2.0,label=f'arithmetic mean')
 
 # Plot Var
 plt.plot(mittel+var,color='black',linestyle='--',linewidth=1.5,label=f'standard deviation')
@@ -109,7 +109,7 @@ plt.axvline(x=size*ver,color='r',linestyle='--') #Osec bei Onset
 #Plot Settings
 #plt.title('Biceps r on different seizrues',fontname="Arial", fontweight="bold",loc='left') #fontsize=12
 plt.xlabel('time [s]',fontname="Arial")
-plt.ylabel('relative skin conductance (palm) [%]',fontname="Arial")
+plt.ylabel('spread skin conductance (thenar)',fontname="Arial")
 plt.xlim(0, 800)
 plt.ylim(0,1)
 #plt.ylim(0,50)
@@ -126,6 +126,6 @@ plt.gca().set_yticklabels(newwhy)
 
 #Bilder speichern
 plt.savefig('/Users/nicolaszabler/Desktop/eda_feature_relative.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/eda_feature_realative.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/eda_feature_relative.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 
 plt.show()

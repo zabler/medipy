@@ -22,9 +22,9 @@ Wiederholen für PLUX27L in M6 und Seizure 74911806
 # Input: Anzahl der Messungen, Signalart
 anzahl_measurements = 2
 channelliste1 = ['EMG1','EMG2','EMG3','EMG4','EMG7','EMG8']
-labelliste1 = ['Pectoralis Major l','Neck extensors','Trizeps l','Biceps l','Deltoidus p. scapularis r', 'Trapezius p. descendenz r']
+labelliste1 = ['pectoralis major l','neck extensors','triceps l','biceps l','deltoidus p. spinalis r', 'trapezius p. descendens r']
 channelliste2 = ['EMG1','EMG2','EMG4','EMG5','EMG6','EMG7','EMG8']
-labelliste2=['Sternocleidomastoideus r', 'Rectus Abdominis r', 'Rectus Femoris r', 'Pectoralis major r', 'Erector spinae','Biceps r', 'Triceps r']
+labelliste2=['sternocleidomastoideus r', 'rectus abdominis r', 'rectus femoris r', 'pectoralis major r', 'erector spinae r','biceps r', 'triceps r']
 
 # Fig für alle Signale
 fig = plt.figure(frameon=True,figsize=(5,4))

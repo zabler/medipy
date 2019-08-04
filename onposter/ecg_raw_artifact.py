@@ -46,7 +46,7 @@ size = 0.5 * eR #Size in Sekunden
 # x samples im Signal mit fs Abtastfrequenz = (anfall-size) *ver = (anfall*eR - T*eR) * fs/eR = (anfall-T)*fs
 ana = channel.signal[int((anfall-size)*ver):int((anfall+2*size)*ver)]
 rpeaks_x, rr = dectclass.skipi(ana, fs).detect()
-plt.plot(channel.signal[int((anfall-size)*ver):int((anfall+2*size)*ver)], label='ECG Einthoven II with seizure artifact', linewidth=0.7, color='black')
+plt.plot(channel.signal[int((anfall-size)*ver):int((anfall+2*size)*ver)], label='ECG with seizure artifact', linewidth=0.7, color='black')
 plt.plot(rpeaks_x,ana[rpeaks_x],'x',color='red',label='Detected R-Peaks')   
 
 # Plot Seizure Onset
@@ -57,8 +57,8 @@ plt.axvline(x=size*ver,color='r',linestyle='--')
 #plt.title('Title',fontname="Arial", fontweight="bold",loc='left')
 plt.xlabel('time [ms]',fontname="Arial")
 plt.xlim(0, 384)
-#plt.ylim(0,1)
-plt.ylabel('ECG Einthoven II (chest) [mV]',fontname="Arial")
+plt.ylim(-1,3)
+plt.ylabel('ECG (chest) [mV]',fontname="Arial")
 plt.grid(b=True,which='major',axis='both')
 plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=4)
 
