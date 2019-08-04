@@ -42,7 +42,7 @@ for k in range(0, anzahl_measurements):
     movisensobject = m2pclass.m2pconverter(showtree=True)
     #Anfallsmarker einlesen
     seizures = movisensobject.getentry('bicepsseizures').event
-    eR = int(movisensobject.getentry('seizures').sampleRate)
+    eR = int(movisensobject.getentry('bicepsseizures').sampleRate)
     # Nur EMG8 des PLUX L nehmen
     channel = movisensobject.getentry(channelname)
     # Signalparameter wählen und Signalwerte berechnen

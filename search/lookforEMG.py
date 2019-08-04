@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 '''
-lookforEEG
+lookforEMG
 
 (1) Erstellung eines Movisens Objekts mit bestimmtem Signal
 
@@ -18,11 +18,11 @@ lookforEEG
 '''
 
 # Input: Anzahl der Messungen, Signalart    
-channelname = 'EMG2'
+channelname = 'EMG8'
 
 # Movisensobjekt einlesen mit geünschter Signalart 
 movisensobject = m2pclass.m2pconverter(
-    channelname, 'seizures', showtree=True)
+    channelname, 'bicepsseizures', showtree=True)
 
 # Signalparameter wählen und Signalwerte berechnen
 channel = movisensobject.getentry(channelname)
@@ -30,8 +30,8 @@ channel.signal = (channel.signal - int(channel.baseline)) * float(channel.lsbVal
 fs = int(channel.sampleRate)
 
 #Seizures
-seizures = movisensobject.getentry('seizures').event
-eR= int(movisensobject.getentry('seizures').sampleRate)
+seizures = movisensobject.getentry('bicepsseizures').event
+eR= int(movisensobject.getentry('bicepsseizures').sampleRate)
 
 #Frequenzverhältnis
 ver = fs/eR
