@@ -7,7 +7,7 @@ import math
 
 
 '''
-EMG Feature Bicepsr
+EMG Feature Bicepsr Relative
 
 (1) Einlesen EMG Signal Biceps r und Anfallsmarker
 
@@ -105,6 +105,6 @@ newwhy = ['0','20','40','60','80','100']
 plt.gca().set_yticklabels(newwhy)
 
 # Bilder speichern
-plt.savefig('/Users/nicolaszabler/Desktop/emg_feature_bicepsr.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/emg_feature_bicepsr.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/emg_feature_bicepsrrelative.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/emg_feature_bicepsrrelative.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 plt.show()

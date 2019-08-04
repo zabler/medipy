@@ -1,5 +1,4 @@
 from wda.movisens2python import m2pclass
-from wda.rdetections import dectclass
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
