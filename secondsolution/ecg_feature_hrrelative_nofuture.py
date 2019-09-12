@@ -7,7 +7,7 @@ matplotlib.use('TkAgg')
 import math
 
 '''
-ECG FEATURE HR ASOLUTE
+ECG FEATURE HR RELATIVE NOT FUTURE VALUES IN HR
 
 (1) Einlesen ECG Signal
 
@@ -56,7 +56,7 @@ for k in range(0, anzahl_measurements):
     ver = fs/eR
 
     #Abstand zum 
-    size=5*eR
+    size=10*eR
 
     #Vektor mit HR Berechnungszeitpunkten
     hrpoint=[]
@@ -64,25 +64,24 @@ for k in range(0, anzahl_measurements):
          hrpoint.append(k+1) 
     
     #Timefaktor
-    timefaktor = 60/(5*2) #Change Size faktor
+    timefaktor = 60/(10*1) #Change Size faktor
 
 
     # Calculation
     for anfall in seizures:
         hrwerte = []
         for zeitpunkt in hrpoint:
-                ana = channel.signal[int(((anfall+zeitpunkt*eR)-size)*ver):int(((anfall+zeitpunkt*eR)+size)*ver)]
+                ana = channel.signal[int(((anfall+zeitpunkt*eR)-size)*ver):int((anfall+zeitpunkt*eR)*ver)]
                 #rpeaks_x, rr = dectclass.hamilton(ana, fs).detect()
                 rpeaks_x, rr = dectclass.pantompkins(ana, fs).detect()
                 #rpeaks_x, rr = dectclass.ownr(ana, fs).detect()
                 #rpeaks_x, rr = dectclass.skipi(ana, fs).detect()
-                hrwerte.append((len(rpeaks_x)*timefaktor)) #BPM = Anzahl Rzacken geteilt durch 2*Sizefaktor mal 60  
-        #hrwerte = (hrwerte-(np.min(hrwerte)))/(np.max(hrwerte)-np.min(hrwerte))
-        hrwerte = hrwerte - np.mean(hrwerte)
+                hrwerte.append((len(rpeaks_x)*timefaktor)) #BPM = Anzahl Rzacken geteilt 2*Sizefaktor Sekunden mal 60      
+        hrwerte = (hrwerte-(np.min(hrwerte)))/(np.max(hrwerte)-np.min(hrwerte))    
         varliste.append(hrwerte)
         summe += hrwerte
         counter+=1
-        #plt.plot(hrpoint,hrwerte,linewidth=0.5,color='#808080')
+        plt.plot(hrpoint,hrwerte,linewidth=0.5,color='#808080')
         #plt.plot(hrpoint,hrwerte,".",color='#808080')
        
 
@@ -108,7 +107,7 @@ plt.plot(hrpoint,mittel+var,color='black',linestyle='--',linewidth=1.5,label=f's
 plt.plot(hrpoint,mittel-var,color='black',linestyle='--',linewidth=1.5)
 
 #Plot for Labeling single Signals
-#plt.plot(0,0,color='#808080',label=f'HR of n={counter} myoclonic seizures')
+plt.plot(0,0,color='#808080',label=f'spread HR of n={counter} myoclonic seizures')
 
 # #Plot Seizure Onset
 plt.plot(0, 0, 'r--', label='seizure onset')
@@ -117,10 +116,9 @@ plt.axvline(x=0,color='r',linestyle='--') #Osec bei Onset
 #Plot Settings
 #plt.title('Biceps r on different seizrues',fontname="Arial", fontweight="bold",loc='left') #fontsize=12
 plt.xlabel('time [s]',fontname="Arial")
-plt.ylabel('HR [bpm]',fontname="Arial")
+plt.ylabel('spread HR',fontname="Arial")
 plt.xlim(-60, 60)
-#plt.ylim(40,150) with single plots
-#plt.ylim(60,120)
+plt.ylim(0,1)
 plt.grid(b=True,which='major',axis='both')
 plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",mode='expand',borderaxespad=0, ncol=2)
 
@@ -128,15 +126,12 @@ plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",m
 # newtime = ['-180','-60','','','','10','30','60','180']
 # plt.gca().set_xticks([-180,-60,-30,-10,0,10,30,60,180])
 # plt.gca().set_xticklabels(newtime)
-# newwhy = ['0','20','40','60','80','100']
-# plt.gca().set_yticklabels(newwhy)
+newwhy = ['0','20','40','60','80','100']
+plt.gca().set_yticklabels(newwhy)
 
 
 #Bilder speichern
-plt.savefig('/Users/nicolaszabler/Desktop/ecg_feature_hrabsolute.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/ecg_feature_hrabsolute.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
-
-fig2= plt.figure(2)
-plt.plot(hrpoint,var)
+plt.savefig('/Users/nicolaszabler/Desktop/ecg_feature_hrrelative_nofuture.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/ecg_feature_hrrelative_nofuture.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 
 plt.show()

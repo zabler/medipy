@@ -47,7 +47,7 @@ size = 0.5 * eR #Size in Sekunden
 ana = channel.signal[int((anfall-size)*ver):int((anfall+2*size)*ver)]
 rpeaks_x, rr = dectclass.skipi(ana, fs).detect()
 plt.plot(channel.signal[int((anfall-size)*ver):int((anfall+2*size)*ver)], label='ECG with seizure artifact', linewidth=0.7, color='black')
-plt.plot(rpeaks_x,ana[rpeaks_x],'x',color='red',label='Detected R-Peaks')   
+plt.plot(rpeaks_x,ana[rpeaks_x],'x',color='red',label='detected R-Peaks')   
 
 # Plot Seizure Onset
 plt.plot(size*ver, 0, 'r--', label='seizure onset')

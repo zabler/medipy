@@ -56,7 +56,7 @@ for k in range(0, anzahl_measurements):
     ver = fs/eR
 
     #Abstand zum 
-    size=5*eR
+    size=10*eR
 
     #Vektor mit HR Berechnungszeitpunkten
     hrpoint=[]
@@ -64,14 +64,14 @@ for k in range(0, anzahl_measurements):
          hrpoint.append(k+1) 
     
     #Timefaktor
-    timefaktor = 60/(5*2) #Change Size faktor
+    timefaktor = 60/(10*1) #Change Size faktor
 
 
     # Calculation
     for anfall in seizures:
         hrwerte = []
         for zeitpunkt in hrpoint:
-                ana = channel.signal[int(((anfall+zeitpunkt*eR)-size)*ver):int(((anfall+zeitpunkt*eR)+size)*ver)]
+                ana = channel.signal[int(((anfall+zeitpunkt*eR)-size)*ver):int((anfall+zeitpunkt*eR)*ver)]
                 #rpeaks_x, rr = dectclass.hamilton(ana, fs).detect()
                 rpeaks_x, rr = dectclass.pantompkins(ana, fs).detect()
                 #rpeaks_x, rr = dectclass.ownr(ana, fs).detect()
@@ -133,8 +133,8 @@ plt.legend(fontsize='xx-small',bbox_to_anchor=(0,1.02,1,0.5), loc="lower left",m
 
 
 #Bilder speichern
-plt.savefig('/Users/nicolaszabler/Desktop/ecg_feature_hrabsolute.png',dpi=300,transparent=False,bbox_inches='tight')    
-plt.savefig('/Users/nicolaszabler/Desktop/ecg_feature_hrabsolute.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/ecg_feature_hrabsolute_meanless_nofut.png',dpi=300,transparent=False,bbox_inches='tight')    
+plt.savefig('/Users/nicolaszabler/Desktop/ecg_feature_hrabsolute_meanless_nofut.svg',dpi=300,format='svg',transparent=False, bbox_inches='tight')    
 
 fig2= plt.figure(2)
 plt.plot(hrpoint,var)

@@ -76,8 +76,8 @@ for k in range(0, anzahl_measurements):
                 rpeaks_x, rr = dectclass.pantompkins(ana, fs).detect()
                 #rpeaks_x, rr = dectclass.ownr(ana, fs).detect()
                 #rpeaks_x, rr = dectclass.skipi(ana, fs).detect()
-                hrwerte.append((len(rpeaks_x)*timefaktor)) #BPM = Anzahl Rzacken geteilt 2*Sizefaktor Sekunden mal 60  
-        hrwerte = (hrwerte-(np.min(hrwerte)))/(np.max(hrwerte)-np.min(hrwerte))
+                hrwerte.append((len(rpeaks_x)*timefaktor)) #BPM = Anzahl Rzacken geteilt 2*Sizefaktor Sekunden mal 60      
+        hrwerte = (hrwerte-(np.min(hrwerte)))/(np.max(hrwerte)-np.min(hrwerte))    
         varliste.append(hrwerte)
         summe += hrwerte
         counter+=1
