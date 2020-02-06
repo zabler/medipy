@@ -1,5 +1,5 @@
-# Wearbale_Data_Analysis
-Data Analysis Algorithms for medical Wearables written in Python
+# MedicalDataAnalysis
+Data Analysis Package for Medical Devices written in Python
 
 **wda**
 
