@@ -1,4 +1,4 @@
-# MedicalDataAnalysis
+# Medipy
 Data Analysis Package for Medical Devices written in Python
 
 **wda**
