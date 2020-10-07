@@ -1,13 +1,16 @@
 '''
-This is the task_filter.py file
+This is the classification.py file
 '''
-import ast
-from pyda.interfaces.data_input_filter import DataInputFilter
 
+# Scilearn Bib
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
-class TaskFilter(DataInputFilter):
+class classification():
     '''
-    This is the TaskFilter class
+    This is the classification class
     '''
 
     def __init__(self, filter_string):
