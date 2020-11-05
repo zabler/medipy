@@ -11,7 +11,8 @@ class HrFeatures(LowLevelFeatures): #Erben von der Klasse und oder der Instanz, 
     def __init__(self):
         super(HrFeatures, self).__init__()
 
-    def create_index(self, length, tags ):
+    def create_index(self, length, tags):
+        pass
 
     
     def rr_around(rr, start=10, stop=10):

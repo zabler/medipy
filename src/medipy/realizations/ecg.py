@@ -46,7 +46,7 @@ class Ecg(Signal):
         
         # RR Intervals
         for r_peak in range(1, len(self.r_peaks)):
-            self.rr_intervals.append(math.ceil((self.r_peaks[r] - self.r_peaks[r - 1])*1000))
+            self.rr_intervals.append(math.ceil((self.r_peaks[r_peak] - self.r_peaks[r_peak - 1])*1000))
 
     def plot_signal(self):
         '''
