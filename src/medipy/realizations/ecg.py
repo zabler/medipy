@@ -54,14 +54,14 @@ class Ecg(Signal):
                 msec = int(msec) * 10
             else:
                 msec = int(msec)                
-            return (int(sec)*1000)+msec
+            return (int(sec) * 1000) + msec
 
         tags = ['SEIZURE', 'EEGSTART', 'EEGSTOP']
         for annotation in annotations:
             if 'R-wave' in annotation[2]:
-                self.r_peaks.append(annotation_to_ms(annotation[0]))
+                self.r_peaks.append(annotation_to_ms(annotation[0])) #implement here the position on 250hz grid
             elif any(tag in annotation[2] for tag in tags):
-                self.tags.append([annotation_to_ms(annotation[0]), annotation[2]]) #implement here the position
+                self.tags.append([annotation_to_ms(annotation[0]),annotation[2]]) #implement here the position on 250hz grid
         
         # RR Intervals
         for r_peak in range(1, len(self.r_peaks)):
