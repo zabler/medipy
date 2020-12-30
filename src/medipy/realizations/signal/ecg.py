@@ -115,7 +115,10 @@ class Ecg(Signal):
         loads the signal object from a pickle
         '''
         with open(file, 'rb') as input:
-            ecg = pickle.load(input)
+            return pickle.load(input)
+    
+    def import_meta(self, file):
+        pass
 
     def save_to_table(self, file):
         '''
