@@ -3,6 +3,7 @@ ecg.py
 '''
 import math
 import pickle
+import csv
 #use dill or feather instead
 import numpy as np
 import pandas as pd
@@ -25,6 +26,7 @@ class Ecg(Signal):
         self.delta_ms = None
         self.r_peaks = []
         self.rr = []
+        self.meta = None
     
     def plot_signal(self):
         '''
@@ -49,7 +51,7 @@ class Ecg(Signal):
         plt.gca().set_xticks(np.arange(10 * self.sample_rate, 20 * self.sample_rate + 1, 2 * self.sample_rate))
         newtime = ['10', '12', '14', '16', '18', '20']
         plt.gca().set_xticklabels(newtime)
-        plt.show()
+        plt.show(block=false)
 
 
     def from_edfplus_uklfr(self, path):
@@ -117,15 +119,11 @@ class Ecg(Signal):
         with open(file, 'rb') as input:
             return pickle.load(input)
     
-    def import_meta(self, file):
-        pass
 
-    def save_to_table(self, file):
+    def save_to_table(self, file, meta_path):
         '''
         saves the data as a pandas table in pickle
         '''
-        # Samples in Dataframe
-        samples_df = pd.DataFrame({'Samples': self.samples})
 
         # Tags in Dataframe
         tags_values = []
@@ -133,19 +131,27 @@ class Ecg(Signal):
         for tag in self.tags:
             tags_values.append(tag[1])
             tags_index.append(tag[0])
-        tags_df = pd.DataFrame({'Tags': tags_values}, index=tags_index)
-        #import meta info here because seizure can be used as index, Infos: EEG Korrelat, EKG, Start Zeit, Comment.. evtl noch mehr im Nachhinein 
+        tags_df = pd.DataFrame({'TAGS': tags_values}, index=tags_index)
+
+        # Metas in Dataframe
+        meta_df = pd.read_csv(meta_path, delimiter=';')
+        meta_df = meta_df[meta_df['TAG'].isin(tags_values)].reset_index(drop=True)
+        meta_df = meta_df.set_index(tags_df.index)
+        self.meta = meta_df.values.tolist()
+
+        # Alle Spalten Droppen die für weitere Verarbeitung irrelavant sind
+        meta_df = meta_df.drop(columns=['MYOCLONIC','EPILEPTIC','TYP I','TYP II','TYP III','SEITE','TAG','STUDY_ID','ORIGIN_START','EMG','DELRE','DELLI','QUADRE','QUADLI','VIDEO','VIGILANZ','PERCEPTION','IMPULSE'])  
+        
+        # Samples in Dataframe
+        samples_df = pd.DataFrame({'SAMPLES': self.samples})
 
         # R-Peaks in Dataframe
-        rr = self.rr.insert(0,np.nan)
-        r_peaks_df = pd.DataFrame({'R_Peaks': rr}, index=self.r_peaks)
+        rr = self.rr.insert(0, np.nan)
+        r_peaks_df = pd.DataFrame({'R_PEAKS': rr}, index=self.r_peaks)
 
         # Merge Dataframe
-        df = pd.concat([samples_df, tags_df, r_peaks_df], ignore_index=False, axis=1)
-        
-        # Check Dataframe
-        print(df)
+        df = pd.concat([samples_df, tags_df, meta_df, r_peaks_df], ignore_index=False, axis=1)
 
-        #Save as feather Object als pickle speichern
+        #Save Dataframe to pickle
         df.to_pickle(file)
 
