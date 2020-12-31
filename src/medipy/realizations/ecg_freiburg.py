@@ -1,31 +1,21 @@
 '''
-ecg.py
+ecg_freiburg.py
 '''
-import math
-import pickle
-import csv
-#use dill or feather instead
+
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from pyedflib import highlevel
-from wfdb import processing
-from ecgdetectors import Detectors
-from medipy.interfaces.signal import Signal
-import rdetection as rd
+from medipy.interfaces.ecg import Ecg
 
-class Ecg(Signal):
+class EcgFreiburg(Ecg):
     '''
-    This is the Ecg class
+    This is the ecg freiburg realization class
     '''
 
     def __init__(self):
-        self.samples = []
+        super().__init__()
         self.tags = []
-        self.sample_rate = None
-        self.delta_ms = None
-        self.r_peaks = []
-        self.rr = []
         self.meta = None
     
     def plot_signal(self):
@@ -51,10 +41,9 @@ class Ecg(Signal):
         plt.gca().set_xticks(np.arange(10 * self.sample_rate, 20 * self.sample_rate + 1, 2 * self.sample_rate))
         newtime = ['10', '12', '14', '16', '18', '20']
         plt.gca().set_xticklabels(newtime)
-        plt.show(block=false)
+        plt.show()#block=False)
 
-
-    def from_edfplus_uklfr(self, path):
+    def data_reader(self, path):
         '''
         This method reads a ecg signal from edfplus in the format of uniklinik freiburg
         '''
@@ -86,39 +75,7 @@ class Ecg(Signal):
         tags = ['SEIZURE']
         for annotation in annotations:
             if any(tag in annotation[2] for tag in tags):
-                self.tags.append([annotation_to_grid(self, annotation[0]), annotation[2]]) 
-
-    def r_peak_detector(self):
-        '''
-        This method detects all r peaks in an ecg signal with the prefered detector
-        rdetectors
-        pyecg detectors
-        wfdb
-        paper
-        '''
-        self.r_peaks, self.rr = rd.Skipi(self.samples, self.sample_rate).detect()
-    
-    def r_peak_optimizer(self):
-        # Verteilung checken
-        # Outlier Removing
-        # Median Plot
-        
-        pass
-        
-    def save_signal(self, file):
-        '''
-        saves the signal object as pickle
-        '''
-        with open(file, 'wb') as output:  # Overwrites any existing file.
-            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
-    
-    def load_signal(file):
-        '''
-        loads the signal object from a pickle
-        '''
-        with open(file, 'rb') as input:
-            return pickle.load(input)
-    
+                self.tags.append([annotation_to_grid(self, annotation[0]), annotation[2]])     
 
     def save_to_table(self, file, meta_path):
         '''
@@ -146,12 +103,12 @@ class Ecg(Signal):
         samples_df = pd.DataFrame({'SAMPLES': self.samples})
 
         # R-Peaks in Dataframe
-        rr = self.rr.insert(0, np.nan)
-        r_peaks_df = pd.DataFrame({'R_PEAKS': rr}, index=self.r_peaks)
+        rr_intervals = self.rr_intervals.insert(0, np.nan)
+        r_peaks_df = pd.DataFrame({'R_PEAKS': rr_intervals}, index=self.r_peaks)
 
         # Merge Dataframe
-        df = pd.concat([samples_df, tags_df, meta_df, r_peaks_df], ignore_index=False, axis=1)
+        all_df = pd.concat([samples_df, tags_df, meta_df, r_peaks_df], ignore_index=False, axis=1)
 
         #Save Dataframe to pickle
-        df.to_pickle(file)
+        all_df.to_pickle(file)
 
