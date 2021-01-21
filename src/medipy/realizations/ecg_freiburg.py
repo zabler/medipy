@@ -2,9 +2,11 @@
 ecg_freiburg.py
 '''
 
+import math
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+import matplotlib.gridspec as gridspec
 from pyedflib import highlevel
 from medipy.interfaces.ecg import Ecg
 
@@ -19,6 +21,7 @@ class EcgFreiburg(Ecg):
         self.seizures = []
         self.meta = None
         self.feature_df = None
+        self.patient_id = None
     
     def data_reader(self, path):
         '''
@@ -51,84 +54,86 @@ class EcgFreiburg(Ecg):
             elif len(msec) == 2:
                 msec = int(msec) * 10
             else:
-                msec = int(msec)                
-            return int(((int(sec) * 1000) + msec) / self.period_ms)
+                msec = int(msec)
+            time = round(((int(sec) * 1000) + msec) / self.period_ms)
+            if time in self.grid:
+                return time
+            else:
+                index = np.abs(self.grid-time).argmin() 
+                return self.grid[index]
         
         tags = ['SEIZURE']
         for annotation in annotations:
             if any(tag in annotation[2] for tag in tags):
                 self.seizures.append([annotation_to_grid(self, annotation[0]), annotation[2]])
-            else:
-                self.tags.append([annotation_to_grid(self, annotation[0]), annotation[2]])
-
-        # tags = ['SEIZURE']
-        # for annotation in annotations:
-        #     self.tags.append([annotation_to_grid(self, annotation[0]), annotation[2]])
-        #     if any(tag in annotation[2] for tag in tags):
-        #         self.seizures.append([annotation_to_grid(self, annotation[0]), annotation[2]])
-
-        # tags = ['SEIZURE']
-        # for annotation in annotations:
-        #     if any(tag in annotation[2] for tag in tags):
-        #         self.tags.append([annotation_to_grid(self, annotation[0]), annotation[2]])
+        
+        #Patient ID
+        filename = path.split('/')[-1]
+        self.patient_id = filename.split('_')[0]
+            
+    def data_cutter(self, duration_s=None):
+        STOP = duration_s * self.sample_rate
+        self.samples = np.array(self.samples[0:STOP])
+        self.grid = np.arange(0, duration_s * self.sample_rate * self.period_ms, self.period_ms, dtype=int)
+        self.seizures = [seizure for seizure in self.seizures if seizure[0] in range(self.grid[0], self.grid[-1])]
     
-    def short_time_hrv_extractor(self, window=300, overlap=0, include_meta=None, export=None,):
+    def short_term_hrv_extractor(self, window=300, overlap=0.5, include_meta=None, export=None):
         '''
-        st_hrv_calculator renntü ber eine PAndas table
-        Berechnet HRV Feature XY, basierend auf Zeitbasis als Index mit zentralem Speicherzeitpunkt, RRList im Zeitraum, und markierter Fehler in einem Zeitfenster von 5min überlappend ?
-        je nach FEature und je nach markierten Fehler 
-        in ecg freiburg
+        Short Term HRV Extraktor
+        Iteration mittels geleitendem (Overlap=1) Fenster / oder springendem (Overlap<1) Fenster über Grid (entspricht Index des Dataframes)
+        Für jedes Fenster werden die darin befindenden RR Intervalle auf Plausibilität und Fehlende Werte geprüft
+        - Wenn nicht plausibel, wird nichts berechnet: np.nan
+        - Wenn plausibel,
+                - werden für den zentralen Gridwert (Window/2) verschiedene HRV Feature berechnet
+                - zuvor wird je nach Feature und fehlender Datenmenge auf verschiedene Weise interpoliert
+                - im Dataframe gespeichert
+        - Anschließend wird der Dataframe mit den Signal, Tags und Meta Daten zusammengeführt, wenn Meta Daten zur Verfügung stehen
+        - Der DataFrame wird unter "export" exportiert
         '''
         # Feature Names
-        time_features = ['SDNN', 'SDRR', 'SDANN', 'SDNN Index', 'RMSSD', 'NN50', 'pNN50', 'DeltaHRMaxHRMin', 'TRI', 'TINN']
-        freq_features = ['VLF_Power', 'LF_Power', 'LF_rel', 'LF_Nu', 'LF_Peak', 'HF_Power', 'HF_rel', 'HF_Nu', 'HF_Peak', 'LF/HF']
-        non_linear_features = ['S', 'SD1', 'SD2', 'SD1/SD2', 'ApEn', 'SampEn', 'DF_alpha1', 'DF_alpha2', 'D_2']
-        
+        time_feature_names = ['RR_MEDIAN', 'RR_MEAN', 'SDNN', 'RMSSD', 'NN50', 'pNN50', 'HR_MAX_MIN', 'HR_MEAN', 'TRI']
+        frequency_feature_names = ['LF_POWER', 'LF_NU', 'LF_PEAK', 'HF_POWER', 'HF_NU', 'HF_PEAK', 'LF_HF_RATIO']
+        nonlinear_feature_names = ['SD1', 'SD2', 'CSI', 'CVI', 'MODIFIED_CSI', 'SAMPEN']
+
         # Samples in Dataframe
         samples_df = pd.DataFrame({'SAMPLES': self.samples}, index=self.grid)
 
         # R-Peaks, RR_Intervals and RR_Missings to Dataframe
         rr_intervals = self.rr_intervals
         rr_intervals = np.insert(rr_intervals, 0, int(np.mean(self.rr_intervals[0:10])))
-        rr_missings = self.rr_missings
-        rr_missings = np.insert(rr_missings, 0, 0)
-        r_peaks_df = pd.DataFrame({'R_PEAKS': self.r_peaks,'RR_INTERVALS': rr_intervals, 'RR_MISSINGS': rr_missings}, index=self.r_peaks)
+        r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals}, index=np.array(self.r_peaks))
         
         # Combine in Signal Dataframe
         signal_df = pd.concat([samples_df, r_peaks_df], ignore_index=False, axis=1).fillna(value=np.nan)
         
         # Get from Signal Dataframe including time information
         rr_intervals_frame = signal_df['RR_INTERVALS'].to_numpy()
-        rr_missings_frame = signal_df['RR_MISSINGS'].to_numpy()
         
         # Create Feature Dataframe
-        self.feature_df = pd.DataFrame(np.nan, index=self.grid, columns=time_features+freq_features+non_linear_features)
+        self.feature_df = pd.DataFrame(np.nan, index=self.grid, columns=time_feature_names+frequency_feature_names+nonlinear_feature_names)
 
-        # Calculation WRONG
-        half_window_ms = int(window / 2) * 1000
-        step = int(((1-overlap)*half_window_ms*2)/self.period_ms)
-        if step == 0:
-            step = 1
-        for time in self.grid[::step]: #Overlap damit nicht für jedes Sample ein Feature berechnet wird
-            if time < half_window_ms:
+        # HRV Calculation
+        half_window = int((window / 2) * self.sample_rate)
+        step_size = int(math.ceil((1 - overlap) * half_window * 2))
+        if step_size == 0:
+            step_size = 1
+        steps = np.arange(0, len(self.grid) + 1, step=step_size)
+        for step in steps:
+            if step < half_window or step+half_window > steps[-1]:
                 continue
-            rr_intervals_window = rr_intervals_frame[time - half_window_ms:time + half_window_ms]
-            rr_missings_window = rr_missings_frame[time - half_window_ms:time + half_window_ms]
-            if self.missing_data_check(rr_intervals_window[~np.isnan(rr_intervals_window)], rr_missings_window[~np.isnan(rr_missings_window)], güte=0.1):
-                self.feature_df.at[time, 'SDANN'] = self.hrv_feature_sdann(self.rr_interval_interpolator(rr_intervals_window, method='linear'))
-        
+            rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
+            rr_intervals_window = rr_intervals_window[~np.isnan(rr_intervals_window)]
+            if self.rr_plausibility_check(rr_intervals_window, window=300, güte=0.1):
+                time_features = self.hrv_features_time(rr_intervals_window)
+                frequency_features = self.hrv_features_frequency(rr_intervals_window)
+                nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
+                features = {**time_features, **frequency_features, **nonlinear_features}
+                for feature in features:
+                    self.feature_df.at[self.grid[step], feature] = features[feature]
+                
+        # Append Meta Infos
         if include_meta is not None:
 
-            # Tags in Dataframe
-            tags_values = []
-            tags_index = []
-            for tag in self.tags:
-                tags_values.append(tag[1])
-                tags_index.append(tag[0])
-            tags_df = pd.DataFrame({'TAGS': tags_values}, index=tags_index)
-            # INDEX FÜR SYSTEMATISCHE OTHER SEIZURES FEHLT, MÜSSTE ANNOTIERT WERDEN
-            # SIND ABER IN TAGS ENTHALTEN 
-            
             # Seizures in Dataframe
             seizures_values = []
             seizures_index = []
@@ -139,62 +144,123 @@ class EcgFreiburg(Ecg):
 
             # Metas of Seizures in Dataframe
             meta_df = pd.read_csv(include_meta, delimiter=';')
+            meta_df = meta_df[meta_df['UKLEEG_NUMBER'].isin([self.patient_id])]
             meta_df = meta_df[meta_df['TAG'].isin(seizures_values)].reset_index(drop=True)
             meta_df = meta_df.set_index(seizures_df.index)
             self.meta = meta_df.values.tolist()
 
-             # Alle Spalten Droppen die für weitere Verarbeitung irrelavant sind
-            meta_df = meta_df.drop(columns=['MYOCLONIC','EPILEPTIC','TYP I','TYP II','TYP III','SEITE','TAG','STUDY_ID','ORIGIN_START','EMG','DELRE','DELLI','QUADRE','QUADLI','VIDEO','VIGILANZ','PERCEPTION','IMPULSE'])
+            # Alle Spalten Droppen die für weitere Verarbeitung irrelavant sind
+            meta_df = meta_df.drop(columns=['MYOCLONIC','EPILEPTIC','TYP I','TYP II','TYP III','SEITE','TAG','STUDY_ID','ORIGIN_START','EKG_QUAL','EEG','EMG','DELRE','DELLI','QUADRE','QUADLI','VIDEO','VIGILANZ','PERCEPTION','IMPULSE'])
+            
+            print(self.feature_df.shape)
+            self.feature_df = pd.concat([signal_df, seizures_df, meta_df, self.feature_df], ignore_index=False, axis=1)
+            print(self.feature_df.shape)
+            print(self.feature_df.columns)
+            print(f'Seizures {len(seizures_values)}')
+            print(f'RR Artefacts {sum(self.rr_artefacts)}')
 
-            # Merge Dataframe
-            self.feature_df = pd.concat([self.feature_df, seizures_df, meta_df], ignore_index=False, axis=1) #tags_df
-        
+        # Export File as Pickle
         if export is not None:
-            #Save Dataframe to pickle (evtl. zu Testzwecken als csv)
             self.feature_df.to_pickle(export)
 
-    def missing_data_check(self, rr_list, rr_missing, güte=0.1):
+    def plot_ecg_raw(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
-        This method checks if there are enough non interpolated values
-        '''
-        #check 5min mindestwert an rr listen, was wenn rr_missing werte erst im anschluss kommen , plausbiel check mean rr -> Anzahl der mind peaks
-        if len(rr_list) > 150: #30 BPM 5 min  
-            if sum(rr_missing)/len(rr_list) <= güte:
-                return True
-        else:
-            return False
-
-    def plot_tag_in_ecg(self, tag, sec_pre=20, sec_post=40):
-        '''
-        plots a part of the signal in an extra plot
-        
+        Plots 10 seconds of a raw ecg signal 
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
 
         # Plot Data
-        plt.plot(self.samples, label='EKG', linewidth=1.0, color='black')
-
-        #Plot R-Peaks
-        plt.plot(self.r_peaks, self.samples[self.r_peaks], 'x', color='red', label='Detektierte R-Zacken')
+        plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
         
-        #Plot Tag
-        plt.plot(0, 0, 'b--', label=f'{tag[1]}')
-        plt.axvline(x=tag[0], color='b', linestyle='--')
-
         # Plot Bereich
-        lower_limit = tag[0] - sec_pre*self.sample_rate
-        upper_limit = tag[0] + sec_post * self.sample_rate
+        lower_limit = sec_start*self.sample_rate - sec_pre*self.sample_rate
+        upper_limit = sec_start*self.sample_rate + sec_post * self.sample_rate
         
         # Plot Settings
-        plt.xlabel(f'Zeit[s] @ {self.sample_rate}Hz ', fontname="Arial")
+        #plt.rcParams["font.family"] = "Times New Roman"
+        #plt.rcParams["font.size"] = "12"
+        plt.xlabel(f'Zeit[s] @ {self.sample_rate}Hz ')
         plt.xlim(lower_limit, upper_limit)
-        plt.ylim(-3, 3) 
-        plt.ylabel('EKG Einthoven II [mV]', fontname="Arial")
+        plt.ylim(-1, 3) 
+        plt.ylabel('EKG [mV]', fontname="Arial")
         plt.grid(b=True, which='major', axis='both')
-        plt.legend(fontsize='x-small', bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)
-        new_xticks = np.arange(lower_limit, upper_limit + 1, 4 * self.sample_rate)
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4) #fontsize='x-small'
+        new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
         plt.gca().set_xticks(new_xticks)
         new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
         plt.gca().set_xticklabels(new_time)
-        plt.show()#block=False)
+        plt.draw()
+        
+    def plot_ecg_preprocessed(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+        '''
+        Plots the different steps of the hamilton preprocessing for the 10 sec ecg signal 
+        '''
+        # Figur mit Subplots erstellen
+        fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=(12, 6)) 
+        gs1 = gridspec.GridSpec(5, 1)
+        gs1.update(hspace=0)
+
+        # Plot Bereich
+        lower_limit = sec_start*self.sample_rate - sec_pre*self.sample_rate
+        upper_limit = sec_start*self.sample_rate + sec_post * self.sample_rate
+
+        # Plot Data
+        ax1 = plt.subplot(gs1[0])
+        plt.axis('on')
+        plt.plot(self.samples_detrended, linewidth=1.5, color='black')
+        plt.xlim(lower_limit, upper_limit)
+        plt.ylim(-1, 3)
+        plt.yticks([])
+        plt.xticks([])
+        plt.ylabel('Detrended')
+      
+        ax2 = plt.subplot(gs1[1])
+        ax2.autoscale(enable=True, tight=True)
+        plt.axis('on')
+        plt.plot(self.samples_filtered, linewidth=1.5, color='black')
+        plt.xlim(lower_limit, upper_limit)
+        plt.yticks([])
+        plt.xticks([])
+        plt.ylabel('BP Filtered')
+        
+        ax3 = plt.subplot(gs1[2])
+        ax3.autoscale(enable=True, tight=True)
+        plt.axis('on')
+        samples_diff = np.insert(self.samples_diff,0,self.samples_diff[0])
+        plt.plot(samples_diff, linewidth=1.5, color='black')
+        plt.xlim(lower_limit, upper_limit)
+        plt.yticks([])
+        plt.xticks([])
+        plt.ylabel('Differentiated')
+        
+        ax4 = plt.subplot(gs1[3])
+        ax4.autoscale(enable=True, tight=True)
+        plt.axis('on')
+        samples_rect = np.insert(self.samples_rect,0,self.samples_rect[0])
+        plt.plot(samples_rect, label='Redctified', linewidth=1.5, color='black')
+        plt.xlim(lower_limit, upper_limit)
+        plt.yticks([])
+        plt.xticks([])
+        plt.ylabel('Redctified')
+        
+        ax5 = plt.subplot(gs1[4])
+        ax5.autoscale(enable=True, tight=True)
+        plt.axis('on')
+        preprocessed = np.insert(self.preprocessed,0,self.preprocessed[0])
+        plt.plot(preprocessed, linewidth=1.5, color='black')
+        plt.yticks([])
+        plt.xlim(lower_limit, upper_limit)
+        new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
+        plt.gca().set_xticks(new_xticks)
+        new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
+        plt.gca().set_xticklabels(new_time)
+        plt.ylabel('MA Filtered')
+        plt.xlabel(f'Zeit[s]')
+        
+        plt.draw()
+        plt.savefig(save_graphic+'EKG_Preprocessed.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        
+            
+        
+
