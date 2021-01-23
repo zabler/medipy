@@ -191,6 +191,7 @@ class EcgFreiburg(Ecg):
         new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
         plt.gca().set_xticklabels(new_time)
         plt.draw()
+        plt.savefig(save_graphic+'EKG.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
         
     def plot_ecg_preprocessed(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
@@ -262,5 +263,116 @@ class EcgFreiburg(Ecg):
         plt.savefig(save_graphic+'EKG_Preprocessed.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
         
             
+    def plot_ecg_with_rpeaks(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+        '''
+        Plots 10 seconds of a raw ecg signal 
+        '''
+        # Figur Erstellen
+        fig = plt.figure(figsize=(12, 4))
+
+        # Plot Data
+        plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
+        peaks = [int(r_peak/self.period_ms) for r_peak in self.r_peaks]
+        plt.plot(peaks, self.samples[peaks],'x',color='red', linewidth=4, label='Beats')
+
+        # Plot Bereich
+        lower_limit = sec_start*self.sample_rate - sec_pre*self.sample_rate
+        upper_limit = sec_start*self.sample_rate + sec_post * self.sample_rate
+        
+        # Plot Settings
+        plt.xlabel(f'Zeit[s] @ {self.sample_rate}Hz ')
+        plt.xlim(lower_limit, upper_limit)
+        plt.ylim(-1, 3) 
+        plt.ylabel('EKG [mV]', fontname="Arial")
+        plt.grid(b=True, which='major', axis='both')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4) #fontsize='x-small'
+        new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
+        plt.gca().set_xticks(new_xticks)
+        new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
+        plt.gca().set_xticklabels(new_time)
+        plt.draw()
+        plt.savefig(save_graphic + 'EKG_Beats.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+    
+    def plot_rr_intervals(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+        '''
+        Plots 10 seconds of a raw ecg signal 
+        '''
+        # Figur Erstellen
+        fig = plt.figure(figsize=(12, 4))
+
+        # Plot Bereich
+        #lower_limit = sec_start * self.sample_rate - sec_pre * self.sample_rate
+        lower_limit = (sec_start- sec_pre)*1000
+        #upper_limit = sec_start * self.sample_rate + sec_post * self.sample_rate
+        upper_limit = (sec_start+ sec_post)*1000
+        
+        # Grab Data
+        beats = [beat for beat in self.r_peaks if beat in range(lower_limit, upper_limit)]
+        ibi_interval = []
+        for k in range(1,len(beats)):
+            ibi_interval.append(math.ceil(beats[k] - beats[k - 1]))
+        
+        # Plot Data
+        plt.bar(np.arange(len(ibi_interval)),ibi_interval, width=1, align='center',label='IBI Bars', color='white',edgecolor='black',linewidth=2)
+        plt.plot(ibi_interval, 'x', color='red', linewidth=1.5)
+        plt.plot(ibi_interval, color='red', linewidth=1.5, label='IBI Line')
+        #plt.plot(peaks, self.samples[peaks], 'x', color='red', linewidth=4, label='Beats')
+        
+        # Plot Settings
+        plt.xlabel(f'Intervall [k]')
+        #plt.xlim(lower_limit, upper_limit)
+        #plt.ylim(-1, 3) 
+        plt.ylabel('Intervalllänge [ms]')
+        #plt.grid(b=True, which='major', axis='both')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
+        #new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
+        #plt.gca().set_xticks(new_xticks)
+        new_time = [0,1,2,3,4,5,6,7,8]
+        plt.gca().set_xticklabels(new_time)
+        plt.draw()
+        plt.savefig(save_graphic + 'RR_Intervals.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+    
+    def plot_rr_tachogram(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+        '''
+        Plots 10 seconds of a raw ecg signal 
+        '''
+        # Figur Erstellen
+        fig = plt.figure(figsize=(12, 4))
+
+        # Plot Bereich
+        #lower_limit = sec_start * self.sample_rate - sec_pre * self.sample_rate
+        lower_limit = (sec_start- sec_pre)*1000
+        #upper_limit = sec_start * self.sample_rate + sec_post * self.sample_rate
+        upper_limit = (sec_start+ sec_post)*1000
+        
+        # Grab Data
+        beats = [beat for beat in self.r_peaks if beat in range(lower_limit, upper_limit)]
+        ibi_interval = []
+        for k in range(1,len(beats)):
+            ibi_interval.append(math.ceil(beats[k] - beats[k - 1]))
+        
+        #n, bins = np.histogram(ibi_interval, bins=10)
+        bin_sequence = np.arange(800,1400+1,50)
+        plt.hist(ibi_interval,bins=bin_sequence,label='IBI',color='white',edgecolor='black',linewidth=2)
+        # Plot Data
+        # plt.bar(np.arange(len(ibi_interval)),ibi_interval, width=1, align='center',label='IBI Bars', color='white',edgecolor='black')
+        # plt.plot(ibi_interval, 'x', color='red', linewidth=1.5)
+        # plt.plot(ibi_interval, color='red', linewidth=1.5, label='IBI Line')
+        #plt.plot(peaks, self.samples[peaks], 'x', color='red', linewidth=4, label='Beats')
+        
+        # Plot Settings
+        plt.xlabel(f'Intervalllänge [ms]')
+        #plt.xlim(lower_limit, upper_limit)
+        #plt.ylim(-1, 3) 
+        plt.ylabel('Absolute Häufigkeit')
+        #plt.grid(b=True, which='major', axis='both')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
+        #new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
+        #plt.gca().set_xticks(new_xticks)
+        # new_time = [0,1,2,3,4,5,6,7,8]
+        # plt.gca().set_xticklabels(new_time)
+        plt.draw()
+        plt.savefig(save_graphic + 'Tachogram.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+     
         
 
