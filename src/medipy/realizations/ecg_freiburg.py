@@ -152,12 +152,10 @@ class EcgFreiburg(Ecg):
             # Alle Spalten Droppen die für weitere Verarbeitung irrelavant sind
             meta_df = meta_df.drop(columns=['MYOCLONIC','EPILEPTIC','TYP I','TYP II','TYP III','SEITE','TAG','STUDY_ID','ORIGIN_START','EKG_QUAL','EEG','EMG','DELRE','DELLI','QUADRE','QUADLI','VIDEO','VIGILANZ','PERCEPTION','IMPULSE'])
             
-            print(self.feature_df.shape)
+            #print(self.feature_df.shape)
             self.feature_df = pd.concat([signal_df, seizures_df, meta_df, self.feature_df], ignore_index=False, axis=1)
-            print(self.feature_df.shape)
-            print(self.feature_df.columns)
-            print(f'Seizures {len(seizures_values)}')
-            print(f'RR Artefacts {sum(self.rr_artefacts)}')
+            #print(self.feature_df.shape)
+            #print(self.feature_df.columns)
 
         # Export File as Pickle
         if export is not None:
@@ -180,10 +178,10 @@ class EcgFreiburg(Ecg):
         # Plot Settings
         #plt.rcParams["font.family"] = "Times New Roman"
         #plt.rcParams["font.size"] = "12"
-        plt.xlabel(f'Zeit[s] @ {self.sample_rate}Hz ')
+        plt.xlabel(f'Zeit[s]')
         plt.xlim(lower_limit, upper_limit)
         plt.ylim(-1, 3) 
-        plt.ylabel('EKG [mV]', fontname="Arial")
+        plt.ylabel('EKG [mV]')
         plt.grid(b=True, which='major', axis='both')
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4) #fontsize='x-small'
         new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
@@ -261,8 +259,7 @@ class EcgFreiburg(Ecg):
         
         plt.draw()
         plt.savefig(save_graphic+'EKG_Preprocessed.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
-        
-            
+                  
     def plot_ecg_with_rpeaks(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
         Plots 10 seconds of a raw ecg signal 
@@ -280,10 +277,10 @@ class EcgFreiburg(Ecg):
         upper_limit = sec_start*self.sample_rate + sec_post * self.sample_rate
         
         # Plot Settings
-        plt.xlabel(f'Zeit[s] @ {self.sample_rate}Hz ')
+        plt.xlabel(f'Zeit[s]')
         plt.xlim(lower_limit, upper_limit)
         plt.ylim(-1, 3) 
-        plt.ylabel('EKG [mV]', fontname="Arial")
+        plt.ylabel('EKG [mV]')
         plt.grid(b=True, which='major', axis='both')
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4) #fontsize='x-small'
         new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)

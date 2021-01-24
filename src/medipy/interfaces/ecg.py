@@ -26,6 +26,10 @@ class Ecg(metaclass=abc.ABCMeta):
         self.r_peaks = []
         self.rr_intervals = []
         self.rr_artefacts = []
+        self.unplausible_no_data = 0
+        self.unplausible_not_normal = 0
+        self.unplausible_artefacts = 0
+        self.plausible=0
 
     def save_object(self, file):
         '''
@@ -68,9 +72,9 @@ class Ecg(metaclass=abc.ABCMeta):
         samples_ma[0:len(b) * 2] = 0  # Einschwingtiefe
         self.preprocessed = samples_ma
 
-    def r_peak_detector_hamilton(self, least_distance=0.2, th_coefficient=0.45):
+    def beat_detector_hamilton(self, least_distance=0.2, th_coefficient=0.45):
         '''
-        This method detects all qrs patterns of ecg signal by hamilton algorithm
+        This method detects all qrs beats of an ecg signal by hamilton algorithm
         '''
      
         # Initiation
@@ -87,7 +91,7 @@ class Ecg(metaclass=abc.ABCMeta):
         peaks = []
 
         # Hamilton Algorithmus
-        for counter in range(len(self.preprocessed)): # evtl problematisch da kein 250 Hz grid fenster ENUMERATE
+        for counter in range(len(self.preprocessed)):
 
             # Peakdetektion
             if counter > 0 and counter < len(self.preprocessed) - 1:
@@ -96,7 +100,7 @@ class Ecg(metaclass=abc.ABCMeta):
                     peaks.append(counter)
 
                     # R4 & R1
-                    if self.preprocessed[counter] > threshold and (peak - qrs_peaks[-1]) > least_distance * self.sample_rate: # MODIFIED to least_distance = 0.195
+                    if self.preprocessed[counter] > threshold and (peak - qrs_peaks[-1]) > least_distance * self.sample_rate: # MODIFIED least_distance = 0.3
                         qrs_peaks.append(peak)
                         index.append(counter)
                         safe_peaks.append(self.preprocessed[peak])
@@ -156,6 +160,7 @@ class Ecg(metaclass=abc.ABCMeta):
         alpha = 5.2
         drr_intervals = np.diff(rr_intervals)
         drr_intervals = np.insert(drr_intervals, 0, 0)
+        #MODIFIED NOT 90 SUROUNDING, ALL OF 5 MIN WINDOOW FOR TH1
         threshold_1 = ((np.quantile(rr_intervals, 0.75) - np.quantile(rr_intervals, 0.25)) / 2) * alpha
         drr_intervals = drr_intervals/threshold_1
         mrr_intervals = []
@@ -172,7 +177,8 @@ class Ecg(metaclass=abc.ABCMeta):
                     mrr_intervals.append(2 * mrr_interval)
                 else:
                     mrr_intervals.append(mrr_interval)
-        threshold_2 = ((np.quantile(mrr_intervals, 0.75) - np.quantile(mrr_intervals, 0.25)) / 2) * alpha
+        #MODIFIED NOT 90 SUROUNDING, ALL OF 5 MIN WINDOOW FOR TH2
+        threshold_2 = ((np.quantile(mrr_intervals, 0.75) - np.quantile(mrr_intervals, 0.25)) / 2) * alpha 
         mrr_intervals = mrr_intervals / threshold_2
         
         ectopic_beats = 0
@@ -207,29 +213,37 @@ class Ecg(metaclass=abc.ABCMeta):
                             elif (np.sign(drr_intervals[index])*drr_intervals[index+2]<-1):
                                 long_short_intervals += 2
                                 continue
-                            
-        self.rr_artefacts.append(ectopic_beats + missed_beats + extra_beats + long_short_intervals)
-        return ectopic_beats + missed_beats + extra_beats + long_short_intervals
+        
+        # WITHOUT ECTOPICS -> NOT COUNT AS ARTEFACT IN CASE OF EPILEPSY
+        self.rr_artefacts.append(missed_beats + extra_beats + long_short_intervals)
+        return missed_beats + extra_beats + long_short_intervals
 
     def rr_plausibility_check(self, rr_intervals, window=300, güte=0.1):
         '''
         This method checks if the window has plausible values
         (1) Gibt es überhaupt Werte? Ja weiter zu (2), Nein False
-        (2) Liegt die Anzahl der detektieren R-Zacken im Bereich des theoretischen? Ja, return True, Nein, return False
-        # Verhindert Missing Data und nimmt Stationarität an
+        (2) Annahme: Stationarität und Normalverteilung 
+        Liegt die Anzahl der detektieren R-Zacken im Bereich des theoretischen? Ja, weiter zu(3), Nein, return False
+        (3) Ist der Anteil an Artefakten im 5min Fenster kleinergleich 10%?  ja, return True, Nein retrun False
         '''
+        
         if len(rr_intervals) == 0:
+            self.unplausible_no_data+=1
             return False
         else:
-            rr_median = np.median(rr_intervals) # Mittelwert stützt Stationarität für spätere Statistische Auswertung und ANzahl der Werte
-            beats_theoretical = (window*1000) / rr_median
+            # MEDIAN EVTL. ROBUSTER ALS MEAN
+            rr_mean = np.mean(rr_intervals) 
+            beats_theoretical = (window*1000) / rr_mean
             beats_actual = len(rr_intervals) + 1
             if beats_actual not in range(int(beats_theoretical * (1 - güte)), int(beats_theoretical * (1 + güte))):
+                self.unplausible_not_normal+=1
                 return False
             else:
-                if self.rr_interval_kubios_artefact_detector(rr_intervals) > güte*len(rr_intervals):
+                if self.rr_interval_kubios_artefact_detector(rr_intervals) > güte * len(rr_intervals):
+                    self.unplausible_artefacts+=1
                     return False
                 else:
+                    self.plausible +=1
                     return True
 
     def hrv_features_time(self, rr_intervals):
