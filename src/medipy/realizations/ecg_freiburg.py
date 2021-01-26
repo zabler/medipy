@@ -189,7 +189,7 @@ class EcgFreiburg(Ecg):
         new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
         plt.gca().set_xticklabels(new_time)
         plt.draw()
-        plt.savefig(save_graphic+'EKG.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        plt.savefig(save_graphic+'5210_Beispiel_Rohes_EKG_Signal.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
         
     def plot_ecg_preprocessed(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
@@ -258,7 +258,7 @@ class EcgFreiburg(Ecg):
         plt.xlabel(f'Zeit[s]')
         
         plt.draw()
-        plt.savefig(save_graphic+'EKG_Preprocessed.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        plt.savefig(save_graphic+'5221_EKG_Preprocessing_des_Beispielsignals_nach_Hamilton.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
                   
     def plot_ecg_with_rpeaks(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
@@ -266,11 +266,12 @@ class EcgFreiburg(Ecg):
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
+        red = (0.8500, 0.3250, 0.0980)
 
         # Plot Data
         plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
         peaks = [int(r_peak/self.period_ms) for r_peak in self.r_peaks]
-        plt.plot(peaks, self.samples[peaks],'x',color='red', linewidth=4, label='Beats')
+        plt.plot(peaks, self.samples[peaks],'x',color=red, linewidth=4, label='Beats')
 
         # Plot Bereich
         lower_limit = sec_start*self.sample_rate - sec_pre*self.sample_rate
@@ -288,7 +289,7 @@ class EcgFreiburg(Ecg):
         new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
         plt.gca().set_xticklabels(new_time)
         plt.draw()
-        plt.savefig(save_graphic + 'EKG_Beats.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        plt.savefig(save_graphic + '5222_Beispielsignal_mit_Beats_nach_Detektion_mit_dem_Hamilton-Algorithmus.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
     
     def plot_rr_intervals(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
@@ -309,10 +310,11 @@ class EcgFreiburg(Ecg):
         for k in range(1,len(beats)):
             ibi_interval.append(math.ceil(beats[k] - beats[k - 1]))
         
+        red = (0.8500, 0.3250, 0.0980)
         # Plot Data
         plt.bar(np.arange(len(ibi_interval)),ibi_interval, width=1, align='center',label='IBI Bars', color='white',edgecolor='black',linewidth=2)
-        plt.plot(ibi_interval, 'x', color='red', linewidth=1.5)
-        plt.plot(ibi_interval, color='red', linewidth=1.5, label='IBI Line')
+        plt.plot(ibi_interval, 'x', color=red, linewidth=1.5)
+        plt.plot(ibi_interval, color=red, linewidth=1.5, label='IBI Line')
         #plt.plot(peaks, self.samples[peaks], 'x', color='red', linewidth=4, label='Beats')
         
         # Plot Settings
@@ -327,7 +329,7 @@ class EcgFreiburg(Ecg):
         new_time = [0,1,2,3,4,5,6,7,8]
         plt.gca().set_xticklabels(new_time)
         plt.draw()
-        plt.savefig(save_graphic + 'RR_Intervals.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        plt.savefig(save_graphic + '5223_Rythmogramm_des_Beispielsignals.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
     
     def plot_rr_tachogram(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
@@ -349,7 +351,7 @@ class EcgFreiburg(Ecg):
             ibi_interval.append(math.ceil(beats[k] - beats[k - 1]))
         
         #n, bins = np.histogram(ibi_interval, bins=10)
-        bin_sequence = np.arange(800,1400+1,50)
+        bin_sequence = np.arange(800,1400+1,25)
         plt.hist(ibi_interval,bins=bin_sequence,label='IBI',color='white',edgecolor='black',linewidth=2)
         # Plot Data
         # plt.bar(np.arange(len(ibi_interval)),ibi_interval, width=1, align='center',label='IBI Bars', color='white',edgecolor='black')
@@ -369,7 +371,7 @@ class EcgFreiburg(Ecg):
         # new_time = [0,1,2,3,4,5,6,7,8]
         # plt.gca().set_xticklabels(new_time)
         plt.draw()
-        plt.savefig(save_graphic + 'Tachogram.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        plt.savefig(save_graphic + '5224_Tachogramm_eines_5-Minuten-Abschnitts.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
      
         
 
