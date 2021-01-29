@@ -49,14 +49,11 @@ class Ecg(metaclass=abc.ABCMeta):
         '''
         preprocesses a ecg signal for hamilton algorithm
         '''
-        # Detrending
-        self.samples_detrended = signal.detrend(self.samples, axis=-1, type='linear', bp=0, overwrite_data=False)
-
         # Bandpass Filter
         f1 = 8/self.sample_rate
         f2 = 16 / self.sample_rate
         b, a = signal.butter(1, [f1 * 2, f2 * 2], btype='bandpass')
-        self.samples_filtered = signal.lfilter(b, a, self.samples_detrended)
+        self.samples_filtered = signal.lfilter(b, a, self.samples)
 
         # Differentiator
         self.samples_diff = np.diff(self.samples_filtered)
@@ -72,7 +69,7 @@ class Ecg(metaclass=abc.ABCMeta):
         samples_ma[0:len(b) * 2] = 0  # Einschwingtiefe
         self.preprocessed = samples_ma
 
-    def beat_detector_hamilton(self, least_distance=0.2, th_coefficient=0.45):
+    def r_peak_detector_hamilton(self, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine=False):
         '''
         This method detects all qrs beats of an ecg signal by hamilton algorithm
         '''
@@ -100,7 +97,7 @@ class Ecg(metaclass=abc.ABCMeta):
                     peaks.append(counter)
 
                     # R4 & R1
-                    if self.preprocessed[counter] > threshold and (peak - qrs_peaks[-1]) > least_distance * self.sample_rate: # MODIFIED least_distance = 0.3
+                    if self.preprocessed[counter] > threshold and (peak - qrs_peaks[-1]) > least_distance * self.sample_rate: # MODIFIED least_distance was  0.3
                         qrs_peaks.append(peak)
                         index.append(counter)
                         safe_peaks.append(self.preprocessed[peak])
@@ -113,7 +110,7 @@ class Ecg(metaclass=abc.ABCMeta):
                             if qrs_peaks[-1] - qrs_peaks[-2] > 1.5 * rr_intervals_average:  #Letztes RR Intervall größer als 1.5 mal RR Interval Average
                                 missed_peaks = peaks[index[-2] + 1:index[-1]]  # Suche nach Peaks zwischen dem jetzigen und dem letzten
                                 for missed_peak in missed_peaks:  # Gab es da einen Peak der 360ms vom letzten entfernt war? Thresshold nur die Hälft?
-                                    if missed_peak - peaks[index[-2]] > int(0.360 * self.sample_rate) and self.preprocessed[missed_peak] > 0.5 * threshold:
+                                    if missed_peak - peaks[index[-2]] > int(0.360 * self.sample_rate) and self.preprocessed[missed_peak] > 0.3 * threshold:
                                         qrs_peaks.insert(-2, missed_peak)  # Füge ihn hinzu TRUE PEAK AVERAGE? # MODIFIED INSTEAD SORT()
                                         safe_peaks.insert(-2, missed_peak)  # MODIFIED: Average neu 'CHECK THRESSHOLD
                                         if len(safe_peaks) > 8:
@@ -143,8 +140,18 @@ class Ecg(metaclass=abc.ABCMeta):
         qrs_peaks.pop(0)
         qrs_peaks.pop(0)
 
+        if refine is not False:
+            refined_peaks=[]
+            for qrs_peak in qrs_peaks:
+                refined_peaks.append(np.argmax(self.samples[qrs_peak - 40:qrs_peak+1])+(qrs_peak - 40))
+            qrs_peaks = refined_peaks
+
         #  R Peaks an Grid anpassen
         self.r_peaks = [qrs_peak * self.period_ms for qrs_peak in qrs_peaks]
+
+    def r_peak_refining_hamilton(self):
+        # geh zeitfenster zruück, check welcher der höchste Wert ist, -> neuer Peak
+        pass
 
     def rr_interval_calculator(self):
         '''
@@ -231,7 +238,7 @@ class Ecg(metaclass=abc.ABCMeta):
             self.unplausible_no_data+=1
             return False
         else:
-            # MEDIAN EVTL. ROBUSTER ALS MEAN
+            # MEDIAN EVTL. ROBUSTER ALS MEAN, aber mean setzt verteilung vorraus, median symmetrie?
             rr_mean = np.mean(rr_intervals) 
             beats_theoretical = (window*1000) / rr_mean
             beats_actual = len(rr_intervals) + 1

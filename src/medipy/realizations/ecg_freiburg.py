@@ -207,13 +207,13 @@ class EcgFreiburg(Ecg):
         # Plot Data
         ax1 = plt.subplot(gs1[0])
         plt.axis('on')
-        plt.plot(self.samples_detrended, linewidth=1.5, color='black')
+        plt.plot(self.samples, linewidth=1.5, color='black')
         plt.xlim(lower_limit, upper_limit)
         plt.ylim(-1, 3)
         plt.yticks([])
         plt.xticks([])
-        plt.ylabel('Detrended')
-      
+        plt.ylabel('Raw')
+
         ax2 = plt.subplot(gs1[1])
         ax2.autoscale(enable=True, tight=True)
         plt.axis('on')
@@ -260,9 +260,41 @@ class EcgFreiburg(Ecg):
         plt.draw()
         plt.savefig(save_graphic+'5221_EKG_Preprocessing_des_Beispielsignals_nach_Hamilton.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
                   
-    def plot_ecg_with_rpeaks(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+    def plot_ecg_detected_rpeaks(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
-        Plots 10 seconds of a raw ecg signal 
+        Plots 10 seconds of a raw ecg signal and detected r peaks
+        '''
+        # Figur Erstellen
+        fig = plt.figure(figsize=(12, 4))
+        red = (0.8500, 0.3250, 0.0980)
+
+        # Plot Data
+        plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
+        peaks = [int(r_peak/self.period_ms) for r_peak in self.r_peaks]
+        plt.plot(peaks, self.samples[peaks],'x',color=red, linewidth=4, label='Beats')
+
+        # Plot Bereich
+        lower_limit = sec_start*self.sample_rate - sec_pre*self.sample_rate
+        upper_limit = sec_start*self.sample_rate + sec_post * self.sample_rate
+        
+        # Plot Settings
+        plt.xlabel(f'Zeit[s]')
+        plt.xlim(lower_limit, upper_limit)
+        plt.ylim(-1, 3) 
+        plt.ylabel('EKG [mV]')
+        plt.grid(b=True, which='major', axis='both')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4) #fontsize='x-small'
+        new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
+        plt.gca().set_xticks(new_xticks)
+        new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
+        plt.gca().set_xticklabels(new_time)
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5222_Beispielsignal_mit_Beats_nach_Detektion_mit_dem_Hamilton-Algorithmus.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+    
+    def plot_ecg_refinied_rpeaks(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+        '''
+        Plots 10 seconds of a raw ecg signal and detected r peaks
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
@@ -290,8 +322,8 @@ class EcgFreiburg(Ecg):
         plt.gca().set_xticklabels(new_time)
         plt.draw()
         plt.savefig(save_graphic + '5222_Beispielsignal_mit_Beats_nach_Detektion_mit_dem_Hamilton-Algorithmus.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
-    
-    def plot_rr_intervals(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+
+    def plot_rr_interval_rhythmogram(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
         Plots 10 seconds of a raw ecg signal 
         '''
@@ -331,7 +363,7 @@ class EcgFreiburg(Ecg):
         plt.draw()
         plt.savefig(save_graphic + '5223_Rythmogramm_des_Beispielsignals.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
     
-    def plot_rr_tachogram(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+    def plot_rr_interval_histogram(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
         '''
         Plots 10 seconds of a raw ecg signal 
         '''
