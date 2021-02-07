@@ -32,7 +32,7 @@ class EcgFreiburg(Ecg):
 
         # Read In
         signals, signal_headers, header = highlevel.read_edf(path, ch_names=read_list)
-        annotations = header['annotations']  #format Seconds.Milliseconds / Duration in sec / Tag: SEIZURE_P##_S##
+        annotations = header['annotations']  #format Seconds.Milliseconds,Duration in sec,Tag: SEIZURE_P##_S##
 
         # Signal
         self.samples = signals[1] - signals[0]
@@ -67,15 +67,16 @@ class EcgFreiburg(Ecg):
             if any(tag in annotation[2] for tag in tags):
                 self.seizures.append([annotation_to_grid(self, annotation[0]), annotation[2]])
         
-        #Patient ID
+        # Patient ID
         filename = path.split('/')[-1]
         self.patient_id = filename.split('_')[0]
             
     def data_cutter(self, duration_s=None):
-        STOP = duration_s * self.sample_rate
-        self.samples = np.array(self.samples[0:STOP])
-        self.grid = np.arange(0, duration_s * self.sample_rate * self.period_ms, self.period_ms, dtype=int)
-        self.seizures = [seizure for seizure in self.seizures if seizure[0] in range(self.grid[0], self.grid[-1])]
+        if duration_s is not None:
+            STOP = duration_s * self.sample_rate
+            self.samples = np.array(self.samples[0:STOP])
+            self.grid = np.arange(0, duration_s * self.sample_rate * self.period_ms, self.period_ms, dtype=int)
+            self.seizures = [seizure for seizure in self.seizures if seizure[0] in range(self.grid[0], self.grid[-1])]
     
     def short_term_hrv_extractor(self, window=300, overlap=0.5, include_meta=None, export=None):
         '''
@@ -152,130 +153,148 @@ class EcgFreiburg(Ecg):
             # Alle Spalten Droppen die für weitere Verarbeitung irrelavant sind
             meta_df = meta_df.drop(columns=['MYOCLONIC','EPILEPTIC','TYP I','TYP II','TYP III','SEITE','TAG','STUDY_ID','ORIGIN_START','EKG_QUAL','EEG','EMG','DELRE','DELLI','QUADRE','QUADLI','VIDEO','VIGILANZ','PERCEPTION','IMPULSE'])
             
-            #print(self.feature_df.shape)
+            # Merge all Dataframes
             self.feature_df = pd.concat([signal_df, seizures_df, meta_df, self.feature_df], ignore_index=False, axis=1)
-            #print(self.feature_df.shape)
-            #print(self.feature_df.columns)
 
         # Export File as Pickle
         if export is not None:
             self.feature_df.to_pickle(export)
 
-    def plot_ecg_raw(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+    def plot_ecg_raw(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
-        Plots 10 seconds of a raw ecg signal 
+        plot 10 seconds of a raw ecg signal 
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
+
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
 
         # Plot Data
         plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
         
         # Plot Bereich
-        lower_limit = sec_start*self.sample_rate - sec_pre*self.sample_rate
-        upper_limit = sec_start*self.sample_rate + sec_post * self.sample_rate
+        lower_limit = start_sec_abs*self.sample_rate
+        upper_limit = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
         
         # Plot Settings
-        #plt.rcParams["font.family"] = "Times New Roman"
-        #plt.rcParams["font.size"] = "12"
-        plt.xlabel(f'Zeit[s]')
         plt.xlim(lower_limit, upper_limit)
-        plt.ylim(-1, 3) 
+        plt.ylim(-1, 3)
+        plt.xlabel(f'Zeit[s]')
         plt.ylabel('EKG [mV]')
         plt.grid(b=True, which='major', axis='both')
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4) #fontsize='x-small'
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)
         new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
         plt.gca().set_xticks(new_xticks)
-        new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
+        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
         plt.gca().set_xticklabels(new_time)
         plt.draw()
-        plt.savefig(save_graphic+'5210_Beispiel_Rohes_EKG_Signal.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        if save_graphic is not None:
+            plt.savefig(save_graphic+'5210_Beispiel_Rohes_EKG_Signal.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
         
-    def plot_ecg_preprocessed(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+    def plot_ecg_preprocessed(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
-        Plots the different steps of the hamilton preprocessing for the 10 sec ecg signal 
+        plots the preprocessing steps of a 10 seconds signal
         '''
         # Figur mit Subplots erstellen
-        fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=(12, 6)) 
+        fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=(12, 6))
         gs1 = gridspec.GridSpec(5, 1)
         gs1.update(hspace=0)
 
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
+
         # Plot Bereich
-        lower_limit = sec_start*self.sample_rate - sec_pre*self.sample_rate
-        upper_limit = sec_start*self.sample_rate + sec_post * self.sample_rate
+        lower_limit = start_sec_abs*self.sample_rate
+        upper_limit = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
 
         # Plot Data
         ax1 = plt.subplot(gs1[0])
-        plt.axis('on')
+        ax1.grid(True)
+        ax1.set_xticklabels([])
         plt.plot(self.samples, linewidth=1.5, color='black')
         plt.xlim(lower_limit, upper_limit)
         plt.ylim(-1, 3)
         plt.yticks([])
-        plt.xticks([])
-        plt.ylabel('Raw')
+        plt.ylabel('Raw Signal')
 
         ax2 = plt.subplot(gs1[1])
-        ax2.autoscale(enable=True, tight=True)
-        plt.axis('on')
+        ax2.grid(True)
+        ax2.set_xticklabels([])
         plt.plot(self.samples_filtered, linewidth=1.5, color='black')
         plt.xlim(lower_limit, upper_limit)
         plt.yticks([])
-        plt.xticks([])
         plt.ylabel('BP Filtered')
         
         ax3 = plt.subplot(gs1[2])
-        ax3.autoscale(enable=True, tight=True)
-        plt.axis('on')
+        ax3.grid(True)
+        ax3.set_xticklabels([])
         samples_diff = np.insert(self.samples_diff,0,self.samples_diff[0])
         plt.plot(samples_diff, linewidth=1.5, color='black')
         plt.xlim(lower_limit, upper_limit)
         plt.yticks([])
-        plt.xticks([])
         plt.ylabel('Differentiated')
         
         ax4 = plt.subplot(gs1[3])
-        ax4.autoscale(enable=True, tight=True)
-        plt.axis('on')
-        samples_rect = np.insert(self.samples_rect,0,self.samples_rect[0])
-        plt.plot(samples_rect, label='Redctified', linewidth=1.5, color='black')
+        ax4.grid(True)  
+        ax4.set_xticklabels([])
+        samples_rect = np.insert(self.samples_rect, 0, self.samples_rect[0])
+        plt.plot(samples_rect, label='Rectified', linewidth=1.5, color='black')
         plt.xlim(lower_limit, upper_limit)
         plt.yticks([])
-        plt.xticks([])
-        plt.ylabel('Redctified')
+        plt.ylabel('Rectified')
         
         ax5 = plt.subplot(gs1[4])
-        ax5.autoscale(enable=True, tight=True)
-        plt.axis('on')
-        preprocessed = np.insert(self.preprocessed,0,self.preprocessed[0])
+        ax5.grid(True)
+        preprocessed = np.insert(self.preprocessed, 0, self.preprocessed[0])
         plt.plot(preprocessed, linewidth=1.5, color='black')
         plt.yticks([])
+        plt.ylabel('MA Filtered')
+        
+        # Plot Settings
         plt.xlim(lower_limit, upper_limit)
         new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
         plt.gca().set_xticks(new_xticks)
-        new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
+        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
         plt.gca().set_xticklabels(new_time)
-        plt.ylabel('MA Filtered')
         plt.xlabel(f'Zeit[s]')
-        
         plt.draw()
-        plt.savefig(save_graphic+'5221_EKG_Preprocessing_des_Beispielsignals_nach_Hamilton.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        if save_graphic is not None:
+            plt.savefig(save_graphic+'5221_EKG_Preprocessing_des_Beispielsignals_nach_Hamilton.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
                   
-    def plot_ecg_detected_rpeaks(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+    def plot_ecg_detected_rpeaks(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
-        Plots 10 seconds of a raw ecg signal and detected r peaks
+        plots 10 seconds of a raw ecg signal and detected r peaks
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
+
+        # Colors
+        blue = (0, 0.4470, 0.7410)
         red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
 
         # Plot Data
         plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
         peaks = [int(r_peak/self.period_ms) for r_peak in self.r_peaks]
-        plt.plot(peaks, self.samples[peaks],'x',color=red, linewidth=4, label='Beats')
+        plt.plot(peaks, self.samples[peaks],'x',color=red, linewidth=4, label='R-Zacken')
 
         # Plot Bereich
-        lower_limit = sec_start*self.sample_rate - sec_pre*self.sample_rate
-        upper_limit = sec_start*self.sample_rate + sec_post * self.sample_rate
+        lower_limit = start_sec_abs*self.sample_rate
+        upper_limit = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
         
         # Plot Settings
         plt.xlabel(f'Zeit[s]')
@@ -283,127 +302,90 @@ class EcgFreiburg(Ecg):
         plt.ylim(-1, 3) 
         plt.ylabel('EKG [mV]')
         plt.grid(b=True, which='major', axis='both')
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4) #fontsize='x-small'
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4) 
         new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
         plt.gca().set_xticks(new_xticks)
-        new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
+        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
         plt.gca().set_xticklabels(new_time)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5222_Beispielsignal_mit_Beats_nach_Detektion_mit_dem_Hamilton-Algorithmus.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5222_Beispielsignal_mit_detektierten_R-Zacken.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
     
-    def plot_ecg_refinied_rpeaks(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+    def plot_rr_interval_tachogram(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
-        Plots 10 seconds of a raw ecg signal and detected r peaks
+        Plots the tachogram of detected in 10 seconds ecg signal
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
+
+        # Colors
+        blue = (0, 0.4470, 0.7410)
         red = (0.8500, 0.3250, 0.0980)
-
-        # Plot Data
-        plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
-        peaks = [int(r_peak/self.period_ms) for r_peak in self.r_peaks]
-        plt.plot(peaks, self.samples[peaks],'x',color=red, linewidth=4, label='Beats')
-
-        # Plot Bereich
-        lower_limit = sec_start*self.sample_rate - sec_pre*self.sample_rate
-        upper_limit = sec_start*self.sample_rate + sec_post * self.sample_rate
-        
-        # Plot Settings
-        plt.xlabel(f'Zeit[s]')
-        plt.xlim(lower_limit, upper_limit)
-        plt.ylim(-1, 3) 
-        plt.ylabel('EKG [mV]')
-        plt.grid(b=True, which='major', axis='both')
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4) #fontsize='x-small'
-        new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
-        plt.gca().set_xticks(new_xticks)
-        new_time = np.linspace(-1 * sec_pre, sec_post, len(new_xticks), endpoint=True, dtype=str)
-        plt.gca().set_xticklabels(new_time)
-        plt.draw()
-        plt.savefig(save_graphic + '5222_Beispielsignal_mit_Beats_nach_Detektion_mit_dem_Hamilton-Algorithmus.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
-
-    def plot_rr_interval_rhythmogram(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
-        '''
-        Plots 10 seconds of a raw ecg signal 
-        '''
-        # Figur Erstellen
-        fig = plt.figure(figsize=(12, 4))
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
 
         # Plot Bereich
-        #lower_limit = sec_start * self.sample_rate - sec_pre * self.sample_rate
-        lower_limit = (sec_start- sec_pre)*1000
-        #upper_limit = sec_start * self.sample_rate + sec_post * self.sample_rate
-        upper_limit = (sec_start+ sec_post)*1000
+        lower_limit = start_sec_abs*1000
+        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
         
         # Grab Data
-        beats = [beat for beat in self.r_peaks if beat in range(lower_limit, upper_limit)]
-        ibi_interval = []
-        for k in range(1,len(beats)):
-            ibi_interval.append(math.ceil(beats[k] - beats[k - 1]))
+        local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
+        local_rr_intervals = []
+        for k in range(1, len(local_r_peaks)):
+            local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
         
-        red = (0.8500, 0.3250, 0.0980)
         # Plot Data
-        plt.bar(np.arange(len(ibi_interval)),ibi_interval, width=1, align='center',label='IBI Bars', color='white',edgecolor='black',linewidth=2)
-        plt.plot(ibi_interval, 'x', color=red, linewidth=1.5)
-        plt.plot(ibi_interval, color=red, linewidth=1.5, label='IBI Line')
-        #plt.plot(peaks, self.samples[peaks], 'x', color='red', linewidth=4, label='Beats')
+        plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
+        plt.plot(local_rr_intervals, color=red, linewidth=1.5, label='RR-Intervall-Folge')
         
         # Plot Settings
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.xlabel(f'Intervall [k]')
-        #plt.xlim(lower_limit, upper_limit)
-        #plt.ylim(-1, 3) 
         plt.ylabel('Intervalllänge [ms]')
-        #plt.grid(b=True, which='major', axis='both')
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
-        #new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
-        #plt.gca().set_xticks(new_xticks)
-        new_time = [0,1,2,3,4,5,6,7,8]
+        new_time = [0, 1, 2, 3, 4, 5, 6, 7, 8] # Wegen 9 R-Zacken
         plt.gca().set_xticklabels(new_time)
         plt.draw()
-        plt.savefig(save_graphic + '5223_Rythmogramm_des_Beispielsignals.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Rythmogramm_des_Beispielsignals.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
     
-    def plot_rr_interval_histogram(self, sec_start=30, sec_pre=0, sec_post=20, save_graphic=None):
+    def plot_rr_interval_histogram(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
-        Plots 10 seconds of a raw ecg signal 
+        plots the histogram of rr_intervals of detected r peaks of 5min signal
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
 
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
+
         # Plot Bereich
-        #lower_limit = sec_start * self.sample_rate - sec_pre * self.sample_rate
-        lower_limit = (sec_start- sec_pre)*1000
-        #upper_limit = sec_start * self.sample_rate + sec_post * self.sample_rate
-        upper_limit = (sec_start+ sec_post)*1000
+        lower_limit = start_sec_abs*1000
+        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
         
         # Grab Data
-        beats = [beat for beat in self.r_peaks if beat in range(lower_limit, upper_limit)]
-        ibi_interval = []
-        for k in range(1,len(beats)):
-            ibi_interval.append(math.ceil(beats[k] - beats[k - 1]))
+        local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
+        local_rr_intervals = []
+        for k in range(1, len(local_r_peaks)):
+            local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
         
-        #n, bins = np.histogram(ibi_interval, bins=10)
-        bin_sequence = np.arange(800,1400+1,25)
-        plt.hist(ibi_interval,bins=bin_sequence,label='IBI',color='white',edgecolor='black',linewidth=2)
         # Plot Data
-        # plt.bar(np.arange(len(ibi_interval)),ibi_interval, width=1, align='center',label='IBI Bars', color='white',edgecolor='black')
-        # plt.plot(ibi_interval, 'x', color='red', linewidth=1.5)
-        # plt.plot(ibi_interval, color='red', linewidth=1.5, label='IBI Line')
-        #plt.plot(peaks, self.samples[peaks], 'x', color='red', linewidth=4, label='Beats')
-        
+        bin_sequence = np.arange(800,1400+1,25)
+        plt.hist(local_rr_intervals, bins=bin_sequence, label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
+               
         # Plot Settings
         plt.xlabel(f'Intervalllänge [ms]')
-        #plt.xlim(lower_limit, upper_limit)
-        #plt.ylim(-1, 3) 
         plt.ylabel('Absolute Häufigkeit')
-        #plt.grid(b=True, which='major', axis='both')
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
-        #new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
-        #plt.gca().set_xticks(new_xticks)
-        # new_time = [0,1,2,3,4,5,6,7,8]
-        # plt.gca().set_xticklabels(new_time)
         plt.draw()
-        plt.savefig(save_graphic + '5224_Tachogramm_eines_5-Minuten-Abschnitts.png', dpi=300, format='png', transparent=False, bbox_inches='tight')
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5224_Tachogramm_eines_5-Minuten-Abschnitts.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
      
         
 

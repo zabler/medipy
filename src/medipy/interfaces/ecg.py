@@ -49,27 +49,74 @@ class Ecg(metaclass=abc.ABCMeta):
         '''
         preprocesses a ecg signal for hamilton algorithm
         '''
-        # Bandpass Filter
-        f1 = 8/self.sample_rate
-        f2 = 16 / self.sample_rate
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
+        
+        # Akausaler Bandpass Filter nach [Liu2017]
+        f1 = 5/self.sample_rate
+        f2 = 15/ self.sample_rate
         b, a = signal.butter(1, [f1 * 2, f2 * 2], btype='bandpass')
-        self.samples_filtered = signal.lfilter(b, a, self.samples)
+        self.samples_filtered = signal.filtfilt(b, a, self.samples)
+        
+        # w, h = signal.freqz(b, a)
+        # x1 = w * 250 * 1.0 / (2 * np.pi)
+        # y1 = 20 * np.log10(abs(h))
+        # fig, ax1 = plt.subplots(figsize=(12, 6))
+        # ax1.semilogx(x1, y1, color='black')
+        # ax1.axhline(y=-3, color=red)
+        # ax1.axvline(x=5, color=red)
+        # ax1.axvline(x=15, color=red)
+        # ax1.set_ylabel('Amplitudengang [dB]')
+        # ax1.set_xlabel('Frequenz [Hz]')
+        # ax1.set_title('Frequenzgang Butterworth Bandpassfilter 1.Ordnung')
+        # ax1.grid(which='both', linestyle='-', color='grey')
+        # ax2 = ax1.twinx()
+        # angles = np.unwrap(np.angle(h, deg=True))
+        # ax2.semilogx(x1, angles, color=blue)
+        # ax2.set_ylabel('Phasengang (Grad)', color=blue)
+        # ax2.grid()
+        # ax2.axis('tight')
+        # plt.draw()
+        # w, gd = signal.group_delay((b, a))
+        # #x = w * 250 * 1.0 / (2 * np.pi)
+        # fig = plt.figure(figsize=(12, 6))
+        # plt.plot(w, gd)
+        # plt.title('Groupdelay')
+        # plt.draw()
 
-        # Differentiator
-        self.samples_diff = np.diff(self.samples_filtered)
+        # Akusaler 5-Point-Differentiator nach [Pan1985]
+        b = [1, 2, 0, -2, -1]
+        b = [x * (1 / 8) * self.sample_rate for x in b]
+        a=[1]
+        self.samples_diff = signal.filtfilt(b, a, self.samples_filtered)
+        
+        # w, h = signal.freqz(b, a=1)
+        # x1 = w * 250 * 1.0 / (2 * np.pi)
+        # y1 = 20 * np.log10(abs(h))
+        # plt.figure(figsize=(10,5))
+        # plt.semilogx(x1, y1)
+        # plt.ylabel('Amplitudengang [dB]')
+        # plt.xlabel('Frequenz [Hz]')
+        # plt.title('Frequenzgang akausaler 5-Punkt-Differentiator')
+        # plt.grid(which='both', linestyle='-', color='grey')
+        # plt.draw()
 
-        # Rectifier
+        # Betragsbildung (Rectifier)
         self.samples_rect = abs(self.samples_diff)
 
-        # 80 ms Moving Average
-        b = np.ones(int(0.08*self.sample_rate))
-        b = b/int(0.08*self.sample_rate)
+        # Akausaler 80ms Mittelwertfilter
+        b = np.ones(int(0.084*self.sample_rate)) # Filterbreite 21 Samples, damit ungerade
+        b = b/int(0.084*self.sample_rate)
         a = [1]
-        samples_ma = signal.lfilter(b, a, self.samples_rect)
-        samples_ma[0:len(b) * 2] = 0  # Einschwingtiefe
+        samples_ma = signal.filtfilt(b, a, self.samples_rect)
         self.preprocessed = samples_ma
 
-    def r_peak_detector_hamilton(self, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine=False):
+    def r_peak_detector_hamilton(self, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine_ms=80):
         '''
         This method detects all qrs beats of an ecg signal by hamilton algorithm
         '''
@@ -91,47 +138,71 @@ class Ecg(metaclass=abc.ABCMeta):
         for counter in range(len(self.preprocessed)):
 
             # Peakdetektion
-            if counter > 0 and counter < len(self.preprocessed) - 1:
+            if counter > 3 and counter < len(self.preprocessed) - 5:
                 if self.preprocessed[counter - 1] < self.preprocessed[counter] and self.preprocessed[counter + 1] < self.preprocessed[counter]:
                     peak = counter
                     peaks.append(counter)
 
                     # R4 & R1
-                    if self.preprocessed[counter] > threshold and (peak - qrs_peaks[-1]) > least_distance * self.sample_rate: # MODIFIED least_distance was  0.3
-                        qrs_peaks.append(peak)
-                        index.append(counter)
-                        safe_peaks.append(self.preprocessed[peak])
-                        if len(safe_peaks) > 8:  #MODIFIED n to s
-                            safe_peaks.pop(0)
-                        safe_peaks_average = np.mean(safe_peaks)
+                    if self.preprocessed[counter] > threshold and (peak - qrs_peaks[-1]) > least_distance * self.sample_rate:
+                        slope_neg_peak = np.diff(self.preprocessed[peak:peak+2]) # 2 Samples = 8ms ANTIKAUSAL
+                        slope_pos_peak = np.diff(self.preprocessed[peak - 2:peak]) # 2 Samples = 8ms KAUSAL
+                        slope_pos_previous = np.diff(self.preprocessed[qrs_peaks[-1] - 2:qrs_peaks[-1]])  # 4 Samples = 8ms KAUSAL
+                        if slope_pos_previous.size ==0:
+                            slope_pos_previous=slope_pos_peak
+                        # R2
+                        if (np.mean(slope_pos_peak) > 0) and (np.mean(slope_neg_peak) < 0):
+                            # Ja, dann weiter, ansonsten BSL Noise, go to R2 else
+                            if (peak - qrs_peaks[-1]) < 0.360*self.sample_rate and np.max(slope_pos_peak) < 0.5*np.max(slope_pos_previous):
+                                # Ja, dann T-Wave Noise, NPL Update und TH Update und Weitermachen
+                                noisy_peaks.append(self.preprocessed[peak])
+                                if len(noisy_peaks) > 8:
+                                    noisy_peaks.pop(0)
+                                noisy_peaks_average = np.mean(noisy_peaks)  # Noisy Peak Average
+                                threshold = noisy_peaks_average + th_coefficient*(safe_peaks_average-noisy_peaks_average) #Noisy Peaks Average + 0.45 Parameter * (True Peaks Average - Noisy Peaks Average)
+                                counter += 1
+                                continue
+                            # Peak ist QRS Peak
+                            qrs_peaks.append(peak)
+                            index.append(counter)
+                            safe_peaks.append(self.preprocessed[peak])
+                            if len(safe_peaks) > 8: 
+                                safe_peaks.pop(0)
+                            safe_peaks_average = np.mean(safe_peaks)
 
-                        # R5
-                        if rr_intervals_average != 0.0:
-                            if qrs_peaks[-1] - qrs_peaks[-2] > 1.5 * rr_intervals_average:  #Letztes RR Intervall größer als 1.5 mal RR Interval Average
-                                missed_peaks = peaks[index[-2] + 1:index[-1]]  # Suche nach Peaks zwischen dem jetzigen und dem letzten
-                                for missed_peak in missed_peaks:  # Gab es da einen Peak der 360ms vom letzten entfernt war? Thresshold nur die Hälft?
-                                    if missed_peak - peaks[index[-2]] > int(0.360 * self.sample_rate) and self.preprocessed[missed_peak] > 0.3 * threshold:
-                                        qrs_peaks.insert(-2, missed_peak)  # Füge ihn hinzu TRUE PEAK AVERAGE? # MODIFIED INSTEAD SORT()
-                                        safe_peaks.insert(-2, missed_peak)  # MODIFIED: Average neu 'CHECK THRESSHOLD
-                                        if len(safe_peaks) > 8:
-                                            safe_peaks.pop(0)
-                                        safe_peaks_average = np.mean(safe_peaks) # True Peak Average
-                                        break
+                            # R5
+                            if rr_intervals_average != 0.0:
+                                if qrs_peaks[-1] - qrs_peaks[-2] > 1.5 * rr_intervals_average:  #Letztes RR Intervall größer als 1.5 mal RR Interval Average
+                                    missed_peaks = peaks[index[-2] + 1:index[-1]]  # Suche nach Peaks zwischen dem jetzigen und dem letzten
+                                    for missed_peak in missed_peaks:  # Gab es da einen Peak der 360ms vom letzten entfernt war? Thresshold nur die Hälfte?
+                                        if missed_peak - peaks[index[-2]] > int(0.360 * self.sample_rate) and self.preprocessed[missed_peak] > 0.3 * threshold:
+                                            qrs_peaks.insert(-2, missed_peak)  # Füge ihn hinzu TRUE PEAK AVERAGE? # MODIFIED INSTEAD SORT()
+                                            safe_peaks.insert(-2, missed_peak)  # MODIFIED: Average neu 'CHECK THRESSHOLD
+                                            if len(safe_peaks) > 8:
+                                                safe_peaks.pop(0)
+                                            safe_peaks_average = np.mean(safe_peaks) # True Peak Average 'AUCH Noise peaks akutalisieren!
+                                            break
 
-                        # R5             
-                        if len(qrs_peaks) > 2:
-                            rr_intervals.append(qrs_peaks[-1] - qrs_peaks[-2])
-                            if len(rr_intervals) > 8:
-                                rr_intervals.pop(0)
-                            rr_intervals_average = int(np.mean(rr_intervals))  # RR Interval Average
-
-                    # R4
+                            # R5             
+                            if len(qrs_peaks) > 2:
+                                rr_intervals.append(qrs_peaks[-1] - qrs_peaks[-2])
+                                if len(rr_intervals) > 8:
+                                    rr_intervals.pop(0)
+                                rr_intervals_average = int(np.mean(rr_intervals))  # RR Interval Average
+                        #R2
+                        else:
+                            noisy_peaks.append(self.preprocessed[peak])
+                            if len(noisy_peaks) > 8:
+                                noisy_peaks.pop(0)
+                            noisy_peaks_average = np.mean(noisy_peaks) # Noisy Peak Average
+                    # R4 & R1
                     else:
                         noisy_peaks.append(self.preprocessed[peak])
                         if len(noisy_peaks) > 8:
                             noisy_peaks.pop(0)
                         noisy_peaks_average = np.mean(noisy_peaks) # Noisy Peak Average
 
+                    #Adjusting Threshholds
                     threshold = noisy_peaks_average + th_coefficient*(safe_peaks_average-noisy_peaks_average) #Noisy Peaks Average + 0.45 Parameter * (True Peaks Average - Noisy Peaks Average)
                     counter += 1
         
@@ -140,18 +211,16 @@ class Ecg(metaclass=abc.ABCMeta):
         qrs_peaks.pop(0)
         qrs_peaks.pop(0)
 
-        if refine is not False:
+        # Refining
+        if refine_ms is not None:
+            refine_area = int((refine_ms/self.period_ms)/2)
             refined_peaks=[]
             for qrs_peak in qrs_peaks:
-                refined_peaks.append(np.argmax(self.samples[qrs_peak - 40:qrs_peak+1])+(qrs_peak - 40))
+                refined_peaks.append(np.argmax(self.samples[qrs_peak - refine_area:qrs_peak+refine_area])+(qrs_peak-refine_area))
             qrs_peaks = refined_peaks
 
         #  R Peaks an Grid anpassen
         self.r_peaks = [qrs_peak * self.period_ms for qrs_peak in qrs_peaks]
-
-    def r_peak_refining_hamilton(self):
-        # geh zeitfenster zruück, check welcher der höchste Wert ist, -> neuer Peak
-        pass
 
     def rr_interval_calculator(self):
         '''
