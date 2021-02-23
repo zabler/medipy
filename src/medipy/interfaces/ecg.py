@@ -291,8 +291,8 @@ class Ecg(metaclass=abc.ABCMeta):
                                 continue
         
         # WITHOUT ECTOPICS -> NOT COUNT AS ARTEFACT IN CASE OF EPILEPSY
-        self.rr_artefacts.append(missed_beats + extra_beats + long_short_intervals)
-        return missed_beats + extra_beats + long_short_intervals
+        self.rr_artefacts.append(ectopic_beats + missed_beats + extra_beats + long_short_intervals)
+        return ectopic_beats + missed_beats + extra_beats + long_short_intervals
 
     def rr_plausibility_check(self, rr_intervals, window=300, güte=0.1):
         '''
@@ -308,8 +308,8 @@ class Ecg(metaclass=abc.ABCMeta):
             return False
         else:
             # MEDIAN EVTL. ROBUSTER ALS MEAN, aber mean setzt verteilung vorraus, median symmetrie?
-            rr_mean = np.mean(rr_intervals) 
-            beats_theoretical = (window*1000) / rr_mean
+            rr_median = np.median(rr_intervals) 
+            beats_theoretical = (window*1000) / rr_median
             beats_actual = len(rr_intervals) + 1
             if beats_actual not in range(int(beats_theoretical * (1 - güte)), int(beats_theoretical * (1 + güte))):
                 self.unplausible_not_normal+=1
@@ -372,7 +372,8 @@ class Ecg(metaclass=abc.ABCMeta):
         #why not scipy lomb
         freq, psd = LombScargle(timestamp_list, rr_intervals,
                                 normalization='psd').autopower(minimum_frequency=0.04,
-                                                               maximum_frequency = 0.40)
+                                                               maximum_frequency=0.40)
+        
         #vlf
         lf_indexes = np.logical_and(freq >= 0.04, freq < 0.15)
         hf_indexes = np.logical_and(freq >= 0.15, freq < 0.40)

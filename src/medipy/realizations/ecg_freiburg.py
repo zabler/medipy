@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 from pyedflib import highlevel
 from medipy.interfaces.ecg import Ecg
+from astropy.timeseries import LombScargle
 
 class EcgFreiburg(Ecg):
     '''
@@ -338,7 +339,7 @@ class EcgFreiburg(Ecg):
         
         # Plot Data
         plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
-        plt.plot(local_rr_intervals, color=red, linewidth=1.5, label='RR-Intervall-Folge')
+        plt.plot(local_rr_intervals, color=red, linewidth=1.5, label='RR-Intervall-Liste')
         
         # Plot Settings
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
@@ -346,6 +347,7 @@ class EcgFreiburg(Ecg):
         plt.ylabel('Intervalllänge [ms]')
         new_time = [0, 1, 2, 3, 4, 5, 6, 7, 8] # Wegen 9 R-Zacken
         plt.gca().set_xticklabels(new_time)
+        plt.ylim(0,1400)
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '5223_Rythmogramm_des_Beispielsignals.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
@@ -387,5 +389,329 @@ class EcgFreiburg(Ecg):
         if save_graphic is not None:
             plt.savefig(save_graphic + '5224_Tachogramm_eines_5-Minuten-Abschnitts.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
      
+    def plot_rr_interval_errors(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
+        '''
+        plots all rr intervall erros incl. the ecg origin for the exmaple signal
+        '''
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
+
+        # Plot Bereich
+        lower_limit_s = start_sec_abs*self.sample_rate
+        upper_limit_s = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
+        lower_limit = start_sec_abs*1000
+        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        
+        # Grab Origin Data
+        local_samples = self.samples[lower_limit_s:upper_limit_s]
+        local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
+        
+        # ERROR TYPE A1: ECTOPIC LONG SHORT
+        error_peaks = list(local_r_peaks)
+        error_peaks[4] = error_peaks[4]+600
+        error_rr_intervals = []
+        for k in range(1, len(error_peaks)):
+            error_rr_intervals.append(math.ceil(error_peaks[k] - error_peaks[k - 1]))
+
+        # Plot Error Origin
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.plot(local_samples, linewidth=1.5, color='black')
+        ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
+        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
+        plt.ylim(-1, 3)
+        plt.xlim(0, upper_limit_s - lower_limit_s)
+        plt.grid(b=True, which='major', axis='both')
+        new_xticks = np.arange(0, upper_limit_s-lower_limit_s + 1, 2 * self.sample_rate)
+        plt.gca().set_xticks(new_xticks)
+        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
+        plt.gca().set_xticklabels(new_time)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Origin_A1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+        # Plot Error Type
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
+        plt.bar([3,4], error_rr_intervals[3:5], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
+        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticks(new_xticks)
+        new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticklabels(new_time)
+        plt.ylim(0, 2000)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Type_A1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+
+        # ERROR TYPE A2: ECTOPIC SHORT LONG
+        error_peaks = list(local_r_peaks)
+        error_peaks[4] = error_peaks[4]-600
+        error_rr_intervals = []
+        for k in range(1, len(error_peaks)):
+            error_rr_intervals.append(math.ceil(error_peaks[k] - error_peaks[k - 1]))
+
+        # Plot Error Origin
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.plot(local_samples, linewidth=1.5, color='black')
+        ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
+        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
+        plt.ylim(-1, 3)
+        plt.xlim(0, upper_limit_s - lower_limit_s)
+        plt.grid(b=True, which='major', axis='both')
+        new_xticks = np.arange(0, upper_limit_s-lower_limit_s + 1, 2 * self.sample_rate)
+        plt.gca().set_xticks(new_xticks)
+        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
+        plt.gca().set_xticklabels(new_time)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Origin_A2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+        # Plot Error Type
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
+        plt.bar([3,4], error_rr_intervals[3:5], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
+        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticks(new_xticks)
+        new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticklabels(new_time)
+        plt.ylim(0, 2000)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Type_A2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+
+        # ERROR TYPE B1: LONG INTERVALL
+        error_peaks = list(local_r_peaks)
+        error_peaks[4] = error_peaks[4]+254
+        error_rr_intervals = []
+        for k in range(1, len(error_peaks)):
+            error_rr_intervals.append(math.ceil(error_peaks[k] - error_peaks[k - 1]))
+
+        # Plot Error Origin
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.plot(local_samples, linewidth=1.5, color='black')
+        ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
+        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
+        plt.ylim(-1, 3)
+        plt.xlim(0, upper_limit_s - lower_limit_s)
+        plt.grid(b=True, which='major', axis='both')
+        new_xticks = np.arange(0, upper_limit_s-lower_limit_s + 1, 2 * self.sample_rate)
+        plt.gca().set_xticks(new_xticks)
+        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
+        plt.gca().set_xticklabels(new_time)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Origin_B1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+        # Plot Error Type
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
+        plt.bar([3], error_rr_intervals[3], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
+        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticks(new_xticks)
+        new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticklabels(new_time)
+        plt.ylim(0, 2000)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Type_B1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+        # ERROR TYPE B2: SHORT INTERVALL
+        error_peaks = list(local_r_peaks)
+        error_peaks[3] = error_peaks[3]-170
+        error_rr_intervals = []
+        for k in range(1, len(error_peaks)):
+            error_rr_intervals.append(math.ceil(error_peaks[k] - error_peaks[k - 1]))
+
+        # Plot Error Origin
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.plot(local_samples, linewidth=1.5, color='black')
+        ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
+        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
+        plt.ylim(-1, 3)
+        plt.xlim(0, upper_limit_s - lower_limit_s)
+        plt.grid(b=True, which='major', axis='both')
+        new_xticks = np.arange(0, upper_limit_s-lower_limit_s + 1, 2 * self.sample_rate)
+        plt.gca().set_xticks(new_xticks)
+        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
+        plt.gca().set_xticklabels(new_time)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Origin_B2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+        # Plot Error Type
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
+        plt.bar([2], error_rr_intervals[2], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
+        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticks(new_xticks)
+        new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticklabels(new_time)
+        plt.ylim(0, 2000)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Type_B2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+        # ERROR TYPE C: EXTRA
+        error_peaks = list(local_r_peaks)
+        error_peaks.insert(5,error_peaks[4]+650)
+        error_rr_intervals = []
+        for k in range(1, len(error_peaks)):
+            error_rr_intervals.append(math.ceil(error_peaks[k] - error_peaks[k - 1]))
+
+        # Plot Error Origin
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.plot(local_samples, linewidth=1.5, color='black')
+        ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
+        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
+        plt.ylim(-1, 3)
+        plt.xlim(0, upper_limit_s - lower_limit_s)
+        plt.grid(b=True, which='major', axis='both')
+        new_xticks = np.arange(0, upper_limit_s-lower_limit_s + 1, 2 * self.sample_rate)
+        plt.gca().set_xticks(new_xticks)
+        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
+        plt.gca().set_xticklabels(new_time)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Origin_C.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+        # Plot Error Type
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
+        plt.bar([4,5], error_rr_intervals[4:6], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
+        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticks(new_xticks)
+        new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticklabels(new_time)
+        plt.ylim(0, 2000)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Type_C.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+        # ERROR TYPE D: MISSED
+        error_peaks = list(local_r_peaks)
+        error_peaks = error_peaks[:4]+error_peaks[6:]
+        error_rr_intervals = []
+        for k in range(1, len(error_peaks)):
+            error_rr_intervals.append(math.ceil(error_peaks[k] - error_peaks[k - 1]))
+
+        # Plot Error Origin
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.plot(local_samples, linewidth=1.5, color='black')
+        ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
+        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
+        plt.ylim(-1, 3)
+        plt.xlim(0, upper_limit_s - lower_limit_s)
+        plt.grid(b=True, which='major', axis='both')
+        new_xticks = np.arange(0, upper_limit_s-lower_limit_s + 1, 2 * self.sample_rate)
+        plt.gca().set_xticks(new_xticks)
+        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
+        plt.gca().set_xticklabels(new_time)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Origin_D.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+        # Plot Error Type
+        fig = plt.figure(figsize=(9, 2.5))
+        plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
+        plt.bar([3], error_rr_intervals[3], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
+        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticks(new_xticks)
+        new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        plt.gca().set_xticklabels(new_time)
+        plt.ylim(0, 2000)
+        plt.xticks([])
+        plt.yticks([])
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Error_Type_D.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+
+    def plot_psd(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+        # Figur Erstellen
+        fig = plt.figure(figsize=(12, 4))
+
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
+
+        # Plot Bereich
+        lower_limit = start_sec_abs*1000
+        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        
+        # Grab Data
+        rri_sum = 0
+        rr_intervals = []
+        for rri in self.rr_intervals:
+            rri_sum = rri_sum + rri
+            if rri_sum in range(lower_limit, upper_limit):
+                rr_intervals.append(rri)
+        #rr_intervals = [rri for rri in self.rr_intervals if rri in range(lower_limit, upper_limit)]
+
+        # Data
+        nni_tmstp = np.cumsum(rr_intervals) / 100
+        timestamp_list = nni_tmstp - nni_tmstp[0]
+
+        freq, psd = LombScargle(timestamp_list, rr_intervals,
+                                normalization='psd').autopower(minimum_frequency=0.04,
+                                                               maximum_frequency=0.40)
+        
+        # Plot
+        plt.plot(freq, psd)
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5224_PSD.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
         
 
