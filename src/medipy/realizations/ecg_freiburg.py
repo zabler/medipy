@@ -10,6 +10,7 @@ import matplotlib.gridspec as gridspec
 from pyedflib import highlevel
 from medipy.interfaces.ecg import Ecg
 from astropy.timeseries import LombScargle
+import astropy.units as u
 
 class EcgFreiburg(Ecg):
     '''
@@ -101,7 +102,7 @@ class EcgFreiburg(Ecg):
         samples_df = pd.DataFrame({'SAMPLES': self.samples}, index=self.grid)
 
         # R-Peaks, RR_Intervals and RR_Missings to Dataframe
-        rr_intervals = self.rr_intervals
+        rr_intervals = self.rr_intervals.copy()
         rr_intervals = np.insert(rr_intervals, 0, int(np.mean(self.rr_intervals[0:10])))
         r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals}, index=np.array(self.r_peaks))
         
@@ -125,7 +126,7 @@ class EcgFreiburg(Ecg):
                 continue
             rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
             rr_intervals_window = rr_intervals_window[~np.isnan(rr_intervals_window)]
-            if self.rr_plausibility_check(rr_intervals_window, window=300, güte=0.1):
+            if self.rr_plausibility_check(rr_intervals_window, window=300, normal_level=0.1, artefact_level=0.01):
                 time_features = self.hrv_features_time(rr_intervals_window)
                 frequency_features = self.hrv_features_frequency(rr_intervals_window)
                 nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
@@ -312,7 +313,7 @@ class EcgFreiburg(Ecg):
         if save_graphic is not None:
             plt.savefig(save_graphic + '5222_Beispielsignal_mit_detektierten_R-Zacken.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
     
-    def plot_rr_interval_tachogram(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
+    def plot_rr_interval_bartachogram(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
         Plots the tachogram of detected in 10 seconds ecg signal
         '''
@@ -350,45 +351,8 @@ class EcgFreiburg(Ecg):
         plt.ylim(0,1400)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Rythmogramm_des_Beispielsignals.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5223_Tachogramm_des_Beispielsignals.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
     
-    def plot_rr_interval_histogram(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
-        '''
-        plots the histogram of rr_intervals of detected r peaks of 5min signal
-        '''
-        # Figur Erstellen
-        fig = plt.figure(figsize=(12, 4))
-
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
-
-        # Plot Bereich
-        lower_limit = start_sec_abs*1000
-        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
-        
-        # Grab Data
-        local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
-        local_rr_intervals = []
-        for k in range(1, len(local_r_peaks)):
-            local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
-        
-        # Plot Data
-        bin_sequence = np.arange(800,1400+1,25)
-        plt.hist(local_rr_intervals, bins=bin_sequence, label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
-               
-        # Plot Settings
-        plt.xlabel(f'Intervalllänge [ms]')
-        plt.ylabel('Absolute Häufigkeit')
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
-        plt.draw()
-        if save_graphic is not None:
-            plt.savefig(save_graphic + '5224_Tachogramm_eines_5-Minuten-Abschnitts.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
-     
     def plot_rr_interval_errors(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
         plots all rr intervall erros incl. the ecg origin for the exmaple signal
@@ -675,7 +639,181 @@ class EcgFreiburg(Ecg):
         if save_graphic is not None:
             plt.savefig(save_graphic + '5223_Error_Type_D.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def plot_psd(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+    def plot_rr_interval_histogram(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+        '''
+        plots the histogram of rr_intervals of detected r peaks of 5min signal
+        '''
+        # Figur Erstellen
+        fig = plt.figure(figsize=(12, 4))
+        ax1 = fig.add_subplot(111)
+        ax2 = ax1.twiny()
+
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
+
+        # Plot Bereich
+        lower_limit = start_sec_abs*1000
+        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        
+        # Grab Data
+        local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
+        local_rr_intervals = []
+        for k in range(1, len(local_r_peaks)):
+            local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
+        local_rr_median = np.median(local_rr_intervals)
+        local_rr_mean = np.mean(local_rr_intervals)
+        real_number = len(local_rr_intervals)
+        theo_number = int((300 * 1000) / local_rr_median)
+        theo2_number = int((300 * 1000) / local_rr_mean)
+        
+        # Plot Data
+        bin_sequence = np.arange(800,1400+1,10)
+        ax1.hist(local_rr_intervals, bins=bin_sequence, label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
+        #props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        textstr = '\n'.join((f'Theoretische Anzahl RR-Intervalle nach Median: {theo_number}',f'Theoretische Anzahl RR-Intervalle im Mittel: {theo2_number}',f'Tatsächliche Anzahl RR-Intervalle: {real_number}'))
+        ax1.text(0.05, 0.95, textstr, transform=ax1.transAxes, fontsize=8, verticalalignment='top')#, bbox=props)
+        ax1.set_xlim(800, 1400)
+        ax2.set_xlim(800, 1400)
+        ax2.set_xticks([])
+        ax2.axvline(x=local_rr_median, label='Median', color=wine, linewidth=4)
+        ax2.axvline(x=local_rr_mean, label='Mittelwert', color=blue, linewidth=4)
+
+
+        # Plot Settings
+        ax1.set_xlabel(f'Intervalllänge [ms]')
+        ax1.set_ylabel('Absolute Häufigkeit')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5224_Tachogramm_eines_5-Minuten-Abschnitts.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+        
+    def plot_rr_interval_tachogram(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+        '''
+        Plots the tachogram of detected in 10 seconds ecg signal
+        '''
+        # Figur Erstellen
+        fig = plt.figure(figsize=(12, 4))
+
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
+
+        # Plot Bereich
+        lower_limit = start_sec_abs*1000
+        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        
+        # Grab Data
+        local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
+        local_rr_intervals = []
+        for k in range(1, len(local_r_peaks)):
+            local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
+        
+        # Plot Data
+        #plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
+        plt.plot(local_rr_intervals, color='black', linewidth=1.5, label='RR-Intervall-Folge')
+        
+        # Plot Settings
+        #plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
+        plt.xlabel(f'Intervall [k]')
+        plt.ylabel('Intervalllänge [ms]')
+        #new_time = [0, 1, 2, 3, 4, 5, 6, 7, 8] # Wegen 9 R-Zacken
+        #plt.gca().set_xticklabels(new_time)
+        plt.ylim(800, 1400)
+        #plt.xlim(0,len(local_rr_intervals)-1)
+        plt.xlim(0,)
+        plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5223_Tachogramm302_des_Beispielsignals.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
+        
+    def plot_rr_interval_pointcare(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+        # Figur Erstellen
+        fig = plt.figure(figsize=(6, 6))
+
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
+
+        # Plot Bereich
+        lower_limit = start_sec_abs*1000
+        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        
+        # Grab Data
+        rri_sum = 0
+        rr_intervals = []
+        for rri in self.rr_intervals:
+            rri_sum = rri_sum + rri
+            if rri_sum in range(lower_limit, upper_limit):
+                rr_intervals.append(rri)
+        x = rr_intervals.copy()
+        x.pop(-1) 
+        y = rr_intervals.copy()
+        y.pop(0)
+        plt.scatter(x,y,label='Pointcare Plot', color='black', linewidth=1.5)
+        
+        # Plot
+        plt.xlim(800, 1400)
+        plt.ylim(800, 1400)
+        plt.xlabel(r'RR $[1]$')
+        plt.ylabel(r'RRPLus1 $[1]$')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5224_pointcare.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+
+    def plot_rr_interval_dfa(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+        # Figur Erstellen
+        fig = plt.figure(figsize=(6, 6))
+
+        # Colors
+        blue = (0, 0.4470, 0.7410)
+        red = (0.8500, 0.3250, 0.0980)
+        yellow = (0.9290, 0.6940, 0.1250)
+        purple = (0.4940, 0.1840, 0.5560)
+        grey = (0.5140, 0.5140, 0.5140)
+        wine = (0.6350, 0.0780, 0.1840)
+
+        # Plot Bereich
+        lower_limit = start_sec_abs*1000
+        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        
+        # Grab Data
+        rri_sum = 0
+        rr_intervals = []
+        for rri in self.rr_intervals:
+            rri_sum = rri_sum + rri
+            if rri_sum in range(lower_limit, upper_limit):
+                rr_intervals.append(rri)
+        x = rr_intervals.copy()
+        x.pop(-1) 
+        y = rr_intervals.copy()
+        y.pop(0)
+        plt.scatter(x,y,label='Pointcare Plot', color='black', linewidth=1.5)
+        
+        # Plot
+        plt.xlim(800, 1400)
+        plt.ylim(800, 1400)
+        plt.xlabel(r'RR $[1]$')
+        plt.ylabel(r'RRPLus1 $[1]$')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5224_pointcare.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+
+    def plot_rr_interval_psd(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
 
@@ -698,20 +836,19 @@ class EcgFreiburg(Ecg):
             rri_sum = rri_sum + rri
             if rri_sum in range(lower_limit, upper_limit):
                 rr_intervals.append(rri)
-        #rr_intervals = [rri for rri in self.rr_intervals if rri in range(lower_limit, upper_limit)]
 
-        # Data
-        nni_tmstp = np.cumsum(rr_intervals) / 100
-        timestamp_list = nni_tmstp - nni_tmstp[0]
+        rr_timestamps_cumsum = np.cumsum(rr_intervals) /1000 # in sec damit Hz
+        rr_timestamps = rr_timestamps_cumsum - rr_timestamps_cumsum[0] #* u.s
 
-        freq, psd = LombScargle(timestamp_list, rr_intervals,
-                                normalization='psd').autopower(minimum_frequency=0.04,
-                                                               maximum_frequency=0.40)
-        
+        freq, psd = LombScargle(rr_timestamps, rr_intervals,normalization='psd').autopower(minimum_frequency=0.040,maximum_frequency=0.400)#, samples_per_peak=5)
+        #psd =np.divide(psd,100000)  # damit Magnitude in ms^2/Hz
         # Plot
-        plt.plot(freq, psd)
+        plt.plot(freq, psd, label='Periodogramm', color='black', linewidth=1.5)
+        ##plt.xlim(40, 400)
+        #plt.ylim(0, 1)
+        plt.xlabel(f'Frequenz [mHz]')
+        plt.ylabel(r'Magnitude $[ms^2/mHz]$')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '5224_PSD.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
-        
-

@@ -47,80 +47,34 @@ class Ecg(metaclass=abc.ABCMeta):
         
     def preprocessor_hamilton(self):
         '''
-        preprocesses a ecg signal for hamilton algorithm
+        This method preprocesses a ecg signal for hamilton r peak detection algorithm
         '''
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
-        
-        # Akausaler Bandpass Filter nach [Liu2017]
+        # Akausaler Bandpass Filter nach [Sedghamiz2014]
         f1 = 5/self.sample_rate
         f2 = 15/ self.sample_rate
         b, a = signal.butter(1, [f1 * 2, f2 * 2], btype='bandpass')
         self.samples_filtered = signal.filtfilt(b, a, self.samples)
-        
-        # w, h = signal.freqz(b, a)
-        # x1 = w * 250 * 1.0 / (2 * np.pi)
-        # y1 = 20 * np.log10(abs(h))
-        # fig, ax1 = plt.subplots(figsize=(12, 6))
-        # ax1.semilogx(x1, y1, color='black')
-        # ax1.axhline(y=-3, color=red)
-        # ax1.axvline(x=5, color=red)
-        # ax1.axvline(x=15, color=red)
-        # ax1.set_ylabel('Amplitudengang [dB]')
-        # ax1.set_xlabel('Frequenz [Hz]')
-        # ax1.set_title('Frequenzgang Butterworth Bandpassfilter 1.Ordnung')
-        # ax1.grid(which='both', linestyle='-', color='grey')
-        # ax2 = ax1.twinx()
-        # angles = np.unwrap(np.angle(h, deg=True))
-        # ax2.semilogx(x1, angles, color=blue)
-        # ax2.set_ylabel('Phasengang (Grad)', color=blue)
-        # ax2.grid()
-        # ax2.axis('tight')
-        # plt.draw()
-        # w, gd = signal.group_delay((b, a))
-        # #x = w * 250 * 1.0 / (2 * np.pi)
-        # fig = plt.figure(figsize=(12, 6))
-        # plt.plot(w, gd)
-        # plt.title('Groupdelay')
-        # plt.draw()
 
         # Akusaler 5-Point-Differentiator nach [Pan1985]
         b = [1, 2, 0, -2, -1]
         b = [x * (1 / 8) * self.sample_rate for x in b]
         a=[1]
         self.samples_diff = signal.filtfilt(b, a, self.samples_filtered)
-        
-        # w, h = signal.freqz(b, a=1)
-        # x1 = w * 250 * 1.0 / (2 * np.pi)
-        # y1 = 20 * np.log10(abs(h))
-        # plt.figure(figsize=(10,5))
-        # plt.semilogx(x1, y1)
-        # plt.ylabel('Amplitudengang [dB]')
-        # plt.xlabel('Frequenz [Hz]')
-        # plt.title('Frequenzgang akausaler 5-Punkt-Differentiator')
-        # plt.grid(which='both', linestyle='-', color='grey')
-        # plt.draw()
 
         # Betragsbildung (Rectifier)
         self.samples_rect = abs(self.samples_diff)
 
-        # Akausaler 80ms Mittelwertfilter
+        # Akausaler ungerader 84ms Mittelwertfilter
         b = np.ones(int(0.084*self.sample_rate)) # Filterbreite 21 Samples, damit ungerade
         b = b/int(0.084*self.sample_rate)
         a = [1]
         samples_ma = signal.filtfilt(b, a, self.samples_rect)
         self.preprocessed = samples_ma
 
-    def r_peak_detector_hamilton(self, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine_ms=80):
+    def r_peak_detector_hamilton(self, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine_ms=24):
         '''
-        This method detects all qrs beats of an ecg signal by hamilton algorithm
+        This method by hamilton detects all r-peaks of an ecg signal
         '''
-     
         # Initiation
         noisy_peaks = []
         noisy_peaks_average = 0.0
@@ -148,8 +102,8 @@ class Ecg(metaclass=abc.ABCMeta):
                         slope_neg_peak = np.diff(self.preprocessed[peak:peak+2]) # 2 Samples = 8ms ANTIKAUSAL
                         slope_pos_peak = np.diff(self.preprocessed[peak - 2:peak]) # 2 Samples = 8ms KAUSAL
                         slope_pos_previous = np.diff(self.preprocessed[qrs_peaks[-1] - 2:qrs_peaks[-1]])  # 4 Samples = 8ms KAUSAL
-                        if slope_pos_previous.size ==0:
-                            slope_pos_previous=slope_pos_peak
+                        if slope_pos_previous.size == 0:
+                            slope_pos_previous = slope_pos_peak
                         # R2
                         if (np.mean(slope_pos_peak) > 0) and (np.mean(slope_neg_peak) < 0):
                             # Ja, dann weiter, ansonsten BSL Noise, go to R2 else
@@ -206,7 +160,8 @@ class Ecg(metaclass=abc.ABCMeta):
                     threshold = noisy_peaks_average + th_coefficient*(safe_peaks_average-noisy_peaks_average) #Noisy Peaks Average + 0.45 Parameter * (True Peaks Average - Noisy Peaks Average)
                     counter += 1
         
-        #  Initial Wert + ersten zwei Werte entfernen
+        # Initial Phase
+        # Remove the inital value + 2 first detected peaks
         qrs_peaks.pop(0)
         qrs_peaks.pop(0)
         qrs_peaks.pop(0)
@@ -231,12 +186,12 @@ class Ecg(metaclass=abc.ABCMeta):
     
     def rr_interval_kubios_artefact_detector(self, rr_intervals):
         '''
-        This method checks for artefacts with an modified kubios algorithm
+        This method detects artefacts of a given rr interval list with an modified version of Lipponen and Tarvainen (Kubios) algorithm
         '''
         alpha = 5.2
         drr_intervals = np.diff(rr_intervals)
         drr_intervals = np.insert(drr_intervals, 0, 0)
-        #MODIFIED NOT 90 SUROUNDING, ALL OF 5 MIN WINDOOW FOR TH1
+        #MODIFIED NOT 90 SUROUNDING, USE ALL INTERVALS OF 5 MIN WINDOOW FOR TH1
         threshold_1 = ((np.quantile(rr_intervals, 0.75) - np.quantile(rr_intervals, 0.25)) / 2) * alpha
         drr_intervals = drr_intervals/threshold_1
         mrr_intervals = []
@@ -253,7 +208,7 @@ class Ecg(metaclass=abc.ABCMeta):
                     mrr_intervals.append(2 * mrr_interval)
                 else:
                     mrr_intervals.append(mrr_interval)
-        #MODIFIED NOT 90 SUROUNDING, ALL OF 5 MIN WINDOOW FOR TH2
+        #MODIFIED NOT 90 SUROUNDING, USE ALL INTERVALS OF 5 MIN WINDOOW FOR TH2
         threshold_2 = ((np.quantile(mrr_intervals, 0.75) - np.quantile(mrr_intervals, 0.25)) / 2) * alpha 
         mrr_intervals = mrr_intervals / threshold_2
         
@@ -290,32 +245,29 @@ class Ecg(metaclass=abc.ABCMeta):
                                 long_short_intervals += 2
                                 continue
         
-        # WITHOUT ECTOPICS -> NOT COUNT AS ARTEFACT IN CASE OF EPILEPSY
-        self.rr_artefacts.append(ectopic_beats + missed_beats + extra_beats + long_short_intervals)
+        self.rr_artefacts.append([ectopic_beats, long_short_intervals, missed_beats, extra_beats])
         return ectopic_beats + missed_beats + extra_beats + long_short_intervals
 
-    def rr_plausibility_check(self, rr_intervals, window=300, güte=0.1):
+    def rr_plausibility_check(self, rr_intervals, window=300, normal_level=0.1, artefact_level=0.01):
         '''
-        This method checks if the window has plausible values
-        (1) Gibt es überhaupt Werte? Ja weiter zu (2), Nein False
-        (2) Annahme: Stationarität und Normalverteilung 
-        Liegt die Anzahl der detektieren R-Zacken im Bereich des theoretischen? Ja, weiter zu(3), Nein, return False
-        (3) Ist der Anteil an Artefakten im 5min Fenster kleinergleich 10%?  ja, return True, Nein retrun False
+        This method checks if a window has plausible values
+        (1) Überhaupt RR-Intervalle vorhanden? Y(Q2), N(Unplausibel)
+        (2) Liegt die Anzahl der detektierten RR-Intervalle im Bereich des Theoretischen (Annahme Stationär und Normalverteilt)? Y(3), N(Unplausibel)
+        (3) Ist der Anteil an fehlerhaften RR-Intervallen (Artefaktgehalt) im 5min-Fenster kleinergleich 1%? Y(Plausibel), N(Unplausibel)
         '''
         
         if len(rr_intervals) == 0:
             self.unplausible_no_data+=1
             return False
         else:
-            # MEDIAN EVTL. ROBUSTER ALS MEAN, aber mean setzt verteilung vorraus, median symmetrie?
             rr_median = np.median(rr_intervals) 
-            beats_theoretical = (window*1000) / rr_median
-            beats_actual = len(rr_intervals) + 1
-            if beats_actual not in range(int(beats_theoretical * (1 - güte)), int(beats_theoretical * (1 + güte))):
+            intervals_theoretical = (window*1000) / rr_median
+            intervals_actual = len(rr_intervals)
+            if intervals_actual not in range(int(intervals_theoretical * (1 - normal_level)), int(intervals_theoretical * (1 + normal_level))):
                 self.unplausible_not_normal+=1
                 return False
             else:
-                if self.rr_interval_kubios_artefact_detector(rr_intervals) > güte * len(rr_intervals):
+                if self.rr_interval_kubios_artefact_detector(rr_intervals) > artefact_level * len(rr_intervals):
                     self.unplausible_artefacts+=1
                     return False
                 else:
@@ -323,43 +275,35 @@ class Ecg(metaclass=abc.ABCMeta):
                     return True
 
     def hrv_features_time(self, rr_intervals):
-        # Statistische
+        # For Calculation
+        drr = np.diff(rr_intervals)
+        drr_mean = np.mean(drr)
+        drr_dev = [val - drr_mean for val in drr]
+        hr = np.divide(60000, rr_intervals)
+
+        # Statistical Features
         rr_median = np.median(rr_intervals)
         rr_mean = np.mean(rr_intervals)
         sdnn = np.std(rr_intervals, ddof=1)
-        rmssd = np.sqrt(np.mean(np.diff(rr_intervals)** 2))
-        nn50 = sum(np.abs(np.diff(rr_intervals)) > 50)
+        sdsd = np.sqrt(np.mean(drr_dev))
+        rmssd = np.sqrt(np.mean(drr ** 2))
+        nn50 = sum(np.abs(drr) > 50)
         pnn50 = (nn50 / len(rr_intervals)) * 100
-        #nn20
-        #pNN20
-        #sdsd
-        #cvsd
-        #cvnn
-        #madNN
-        #mcvNN
-
-        # Herzrate
-        hr = np.divide(60000, rr_intervals)
+             
+        # Heartrate Features
         hr_mean = np.mean(hr)
         hr_max_min = max(hr)-min(hr)
-        # hr_std = np.std(hr, ddof=1)
-        # hr_max = max(hr)
-        # hr_min = min(hr)
 
-        #Geometrische
-        tri = len(rr_intervals) / max(np.histogram(rr_intervals, bins=range(int(min(rr_intervals)), int(max(rr_intervals)), 8))[0])
-        #tinn
-        
         time_features = {
         'RR_MEDIAN': rr_median, 
         'RR_MEAN': rr_mean,
         'SDNN': sdnn,
+        'SDSD': sdsd,
         'RMSSD': rmssd,
         'NN50': nn50,
         'pNN50': nn50,
         'HR_MEAN': hr_mean,
         'HR_MAX_MIN': hr_max_min,
-        'TRI': tri,
         }
         return time_features
 
@@ -367,18 +311,23 @@ class Ecg(metaclass=abc.ABCMeta):
         '''
         This method calculates all frequency features
         '''
-        nni_tmstp = np.cumsum(rr_intervals) / 100
-        timestamp_list = nni_tmstp - nni_tmstp[0]
-        #why not scipy lomb
-        freq, psd = LombScargle(timestamp_list, rr_intervals,
-                                normalization='psd').autopower(minimum_frequency=0.04,
-                                                               maximum_frequency=0.40)
+        # For Calculation
+        rr_timestamps_cumsum = np.cumsum(rr_intervals) /1000 # in sec damit Hz
+        rr_timestamps = rr_timestamps_cumsum - rr_timestamps_cumsum[0]
+
+        # LombScargle by Astropy
+        freq, psd = LombScargle(rr_timestamps, rr_intervals, normalization='psd').autopower(minimum_frequency=0.04, maximum_frequency=0.40)
+        psd = np.divide(psd,100000)  # damit Magnitude in ms^2/Hz
         
-        #vlf
+        # LF Band                                                       
         lf_indexes = np.logical_and(freq >= 0.04, freq < 0.15)
+        
+        # HF Band
         hf_indexes = np.logical_and(freq >= 0.15, freq < 0.40)
+        
+        # Spectal Features
         lf_power = np.trapz(y=psd[lf_indexes], x=freq[lf_indexes])
-        hf_power = np.trapz(y = psd[hf_indexes], x = freq[hf_indexes])
+        hf_power = np.trapz(y=psd[hf_indexes], x=freq[hf_indexes])
         lf_peak = freq[lf_indexes].max()
         hf_peak = freq[hf_indexes].max()
         lf_hf_ratio = lf_power / hf_power
@@ -398,29 +347,33 @@ class Ecg(metaclass=abc.ABCMeta):
         return freqency_features
 
     def hrv_features_nonlinear(self, rr_intervals):
-        diff_nn_intervals = np.diff(rr_intervals)
-        sd1 = np.sqrt(np.std(diff_nn_intervals, ddof=1) ** 2 * 0.5)
-        sd2 = np.sqrt(2 * np.std(rr_intervals, ddof=1) ** 2 - 0.5 * np.std(diff_nn_intervals, ddof=1) ** 2)
+
+        drr = np.diff(rr_intervals)
+        sd1 = np.sqrt(np.std(drr, ddof=1) ** 2 * 0.5)
+        sd2 = np.sqrt(2 * np.std(rr_intervals, ddof=1) ** 2 - 0.5 * np.std(drr, ddof=1) ** 2)
         T = 4 * sd1
         L = 4 * sd2
         csi = sd2 / sd1
-        cvi = np.log10(L * T)
         modified_csi = L ** 2 / T
-        samp_en = nolds.sampen(rr_intervals, emb_dim=2)
-
+        cvi = np.log10(L * T)
         # df_alpha_1 nolds
         # df_alpha_2 nolds
-        # cd_d2 nolds
+
+        samp_en = nolds.sampen(rr_intervals, emb_dim=2)
         # ap_en
+        # cd_d2 nolds
         # check neurokit
 
         nonlinear_features = {
             'SD1': sd1,
             'SD2': sd2,
             'CSI': csi,
-            'CVI': cvi,
             'MODIFIED_CSI': modified_csi,
-            'SAMPEN': samp_en
+            'CVI': cvi,
+            # 'DF_ALPHA_1': df_alpha_1,
+            # 'DF_ALPHA_2': df_alpha_2,
+            # 'APEN': ap_en,
+            # 'SAMPEN' samp_en
         }
 
         return nonlinear_features
