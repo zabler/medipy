@@ -7,8 +7,6 @@ import pickle
 import nolds
 import numpy as np
 from scipy import signal
-from ecgdetectors import Detectors
-from matplotlib import pyplot as plt
 from astropy.timeseries import LombScargle
 
 
@@ -19,6 +17,9 @@ class Ecg(metaclass=abc.ABCMeta):
     def __init__(self):
         # Signal Parameter
         self.samples = []
+        self.samples_filtered = []
+        self.samples_diff = []
+        self.samples_rect = []
         self.preprocessed = []
         self.sample_rate = None
         self.period_ms = None
@@ -29,7 +30,7 @@ class Ecg(metaclass=abc.ABCMeta):
         self.unplausible_no_data = 0
         self.unplausible_not_normal = 0
         self.unplausible_artefacts = 0
-        self.plausible=0
+        self.plausible = 0
 
     def save_object(self, file):
         '''
@@ -44,7 +45,7 @@ class Ecg(metaclass=abc.ABCMeta):
         '''
         with open(file, 'rb') as input_file:
             return pickle.load(input_file)
-        
+
     def preprocessor_hamilton(self):
         '''
         This method preprocesses a ecg signal for hamilton r peak detection algorithm
@@ -58,7 +59,7 @@ class Ecg(metaclass=abc.ABCMeta):
         # Akusaler 5-Point-Differentiator nach [Pan1985]
         b = [1, 2, 0, -2, -1]
         b = [x * (1 / 8) * self.sample_rate for x in b]
-        a=[1]
+        a = [1]
         self.samples_diff = signal.filtfilt(b, a, self.samples_filtered)
 
         # Betragsbildung (Rectifier)
@@ -107,7 +108,7 @@ class Ecg(metaclass=abc.ABCMeta):
                         # R2
                         if (np.mean(slope_pos_peak) > 0) and (np.mean(slope_neg_peak) < 0):
                             # Ja, dann weiter, ansonsten BSL Noise, go to R2 else
-                            if (peak - qrs_peaks[-1]) < 0.360*self.sample_rate and np.max(slope_pos_peak) < 0.5*np.max(slope_pos_previous):
+                            if (peak - qrs_peaks[-1]) < 0.360*self.sample_rate and np.max(slope_pos_peak) < th_search_back*np.max(slope_pos_previous):
                                 # Ja, dann T-Wave Noise, NPL Update und TH Update und Weitermachen
                                 noisy_peaks.append(self.preprocessed[peak])
                                 if len(noisy_peaks) > 8:
@@ -120,7 +121,7 @@ class Ecg(metaclass=abc.ABCMeta):
                             qrs_peaks.append(peak)
                             index.append(counter)
                             safe_peaks.append(self.preprocessed[peak])
-                            if len(safe_peaks) > 8: 
+                            if len(safe_peaks) > 8:
                                 safe_peaks.pop(0)
                             safe_peaks_average = np.mean(safe_peaks)
 
@@ -137,7 +138,7 @@ class Ecg(metaclass=abc.ABCMeta):
                                             safe_peaks_average = np.mean(safe_peaks) # True Peak Average 'AUCH Noise peaks akutalisieren!
                                             break
 
-                            # R5             
+                            # R5
                             if len(qrs_peaks) > 2:
                                 rr_intervals.append(qrs_peaks[-1] - qrs_peaks[-2])
                                 if len(rr_intervals) > 8:
@@ -159,7 +160,7 @@ class Ecg(metaclass=abc.ABCMeta):
                     #Adjusting Threshholds
                     threshold = noisy_peaks_average + th_coefficient*(safe_peaks_average-noisy_peaks_average) #Noisy Peaks Average + 0.45 Parameter * (True Peaks Average - Noisy Peaks Average)
                     counter += 1
-        
+
         # Initial Phase
         # Remove the inital value + 2 first detected peaks
         qrs_peaks.pop(0)
@@ -169,7 +170,7 @@ class Ecg(metaclass=abc.ABCMeta):
         # Refining
         if refine_ms is not None:
             refine_area = int((refine_ms/self.period_ms)/2)
-            refined_peaks=[]
+            refined_peaks = []
             for qrs_peak in qrs_peaks:
                 refined_peaks.append(np.argmax(self.samples[qrs_peak - refine_area:qrs_peak+refine_area])+(qrs_peak-refine_area))
             qrs_peaks = refined_peaks
@@ -183,7 +184,7 @@ class Ecg(metaclass=abc.ABCMeta):
         '''
         for k in range(1, len(self.r_peaks)):
             self.rr_intervals.append(math.ceil(self.r_peaks[k] - self.r_peaks[k - 1]))
-    
+
     def rr_interval_kubios_artefact_detector(self, rr_intervals):
         '''
         This method detects artefacts of a given rr interval list with an modified version of Lipponen and Tarvainen (Kubios) algorithm
@@ -209,9 +210,9 @@ class Ecg(metaclass=abc.ABCMeta):
                 else:
                     mrr_intervals.append(mrr_interval)
         #MODIFIED NOT 90 SUROUNDING, USE ALL INTERVALS OF 5 MIN WINDOOW FOR TH2
-        threshold_2 = ((np.quantile(mrr_intervals, 0.75) - np.quantile(mrr_intervals, 0.25)) / 2) * alpha 
+        threshold_2 = ((np.quantile(mrr_intervals, 0.75) - np.quantile(mrr_intervals, 0.25)) / 2) * alpha
         mrr_intervals = mrr_intervals / threshold_2
-        
+
         ectopic_beats = 0
         missed_beats = 0
         extra_beats = 0
@@ -227,25 +228,25 @@ class Ecg(metaclass=abc.ABCMeta):
                 else:
                     s12 = min(drr_intervals[index - 1:index + 1])
                 if (s11 > 1 and s12 < const_1 * s11 - const_2) or (s11 < -1 and s12 > -const_1 * s11 + const_2):
-                    ectopic_beats +=1
+                    ectopic_beats += 1
                     continue
                 else:
                     if abs(drr_intervals[index]) > 1 or abs(mrr_intervals[index]) > 3:
-                        if (np.sign(drr_intervals[index])*drr_intervals[index+1]<-1) or (abs(mrr_intervals[index]) > 3) or (np.sign(drr_intervals[index])*drr_intervals[index+2]<-1):
+                        if (np.sign(drr_intervals[index]) * drr_intervals[index + 1] < -1) or (abs(mrr_intervals[index]) > 3) or (np.sign(drr_intervals[index]) * drr_intervals[index + 2] < -1):
                             if abs((rr_intervals[index]/2)-mrr_intervals[index]) < threshold_2:
-                                missed_beats +=1
+                                missed_beats += 1
                                 continue
                             elif abs(rr_intervals[index]+rr_intervals[index]-mrr_intervals[index]) < threshold_2:
-                                extra_beats +=1
+                                extra_beats += 1
                                 continue
-                            elif (np.sign(drr_intervals[index])*drr_intervals[index+1]<-1) or (abs(mrr_intervals[index]) > 3):
+                            elif (np.sign(drr_intervals[index]) * drr_intervals[index + 1] < -1) or (abs(mrr_intervals[index]) > 3):
                                 long_short_intervals += 1
                                 continue
-                            elif (np.sign(drr_intervals[index])*drr_intervals[index+2]<-1):
+                            elif np.sign(drr_intervals[index]) * drr_intervals[index + 2] < -1:
                                 long_short_intervals += 2
                                 continue
         
-        self.rr_artefacts.append([ectopic_beats, long_short_intervals, missed_beats, extra_beats])
+        self.rr_artefacts.append(ectopic_beats + long_short_intervals + missed_beats + extra_beats)
         return ectopic_beats + missed_beats + extra_beats + long_short_intervals
 
     def rr_plausibility_check(self, rr_intervals, window=300, normal_level=0.1, artefact_level=0.01):
@@ -255,12 +256,12 @@ class Ecg(metaclass=abc.ABCMeta):
         (2) Liegt die Anzahl der detektierten RR-Intervalle im Bereich des Theoretischen (Annahme Stationär und Normalverteilt)? Y(3), N(Unplausibel)
         (3) Ist der Anteil an fehlerhaften RR-Intervallen (Artefaktgehalt) im 5min-Fenster kleinergleich 1%? Y(Plausibel), N(Unplausibel)
         '''
-        
+
         if len(rr_intervals) == 0:
             self.unplausible_no_data += 1
             return False
         else:
-            rr_median = np.median(rr_intervals) 
+            rr_median = np.median(rr_intervals)
             intervals_theoretical = (window*1000) / rr_median
             intervals_actual = len(rr_intervals)
             if intervals_actual not in range(int(intervals_theoretical * (1 - normal_level)), int(intervals_theoretical * (1 + normal_level))):
@@ -275,6 +276,9 @@ class Ecg(metaclass=abc.ABCMeta):
                     return True
 
     def hrv_features_time(self, rr_intervals):
+        '''
+        This method calculates all time features
+        '''
         # For Calculation
         drr = np.diff(rr_intervals)
         drr_mean = np.mean(drr)
@@ -289,21 +293,21 @@ class Ecg(metaclass=abc.ABCMeta):
         rmssd = np.sqrt(np.mean(drr ** 2))
         nn50 = sum(np.abs(drr) > 50)
         pnn50 = (nn50 / len(rr_intervals)) * 100
-             
+
         # Heartrate Features
         hr_mean = np.mean(hr)
         hr_max_min = max(hr)-min(hr)
 
         time_features = {
-        'RR_MEDIAN': rr_median, 
-        'RR_MEAN': rr_mean,
-        'SDNN': sdnn,
-        'SDSD': sdsd,
-        'RMSSD': rmssd,
-        'NN50': nn50,
-        'pNN50': nn50,
-        'HR_MEAN': hr_mean,
-        'HR_MAX_MIN': hr_max_min,
+            'RR_MEDIAN': rr_median,
+            'RR_MEAN': rr_mean,
+            'SDNN': sdnn,
+            'SDSD': sdsd,
+            'RMSSD': rmssd,
+            'NN50': nn50,
+            'pNN50': nn50,
+            'HR_MEAN': hr_mean,
+            'HR_MAX_MIN': hr_max_min,
         }
         return time_features
 
@@ -318,13 +322,13 @@ class Ecg(metaclass=abc.ABCMeta):
 
         # LombScargle by Astropy
         freq, psd = LombScargle(rr_timestamps, rr_intervals, normalization='psd').autopower(minimum_frequency=0.040, maximum_frequency=0.400, samples_per_peak=5)
-        
-        # LF Band                                                       
+
+        # LF Band
         lf_indexes = np.logical_and(freq >= 0.04, freq < 0.15)
-        
+
         # HF Band
         hf_indexes = np.logical_and(freq >= 0.15, freq < 0.40)
-        
+
         # Spectal Features
         lf_power = np.trapz(y=psd[lf_indexes], x=freq[lf_indexes])
         hf_power = np.trapz(y=psd[hf_indexes], x=freq[hf_indexes])
@@ -335,18 +339,21 @@ class Ecg(metaclass=abc.ABCMeta):
         hf_nu = (hf_power / (lf_power + hf_power)) * 100
 
         freqency_features = {
-        'LF_POWER': lf_power,
-        'HF_POWER': hf_power,
-        'LF_HF_RATIO': lf_hf_ratio,
-        'LF_NU': lf_nu,
-        'HF_NU': hf_nu,
-        'LF_PEAK': lf_peak,
-        'HF_PEAK': hf_peak
+            'LF_POWER': lf_power,
+            'HF_POWER': hf_power,
+            'LF_HF_RATIO': lf_hf_ratio,
+            'LF_NU': lf_nu,
+            'HF_NU': hf_nu,
+            'LF_PEAK': lf_peak,
+            'HF_PEAK': hf_peak
         }
-    
+
         return freqency_features
 
     def hrv_features_nonlinear(self, rr_intervals):
+        '''
+        This method calculates all nonlinear features
+        '''
         # For Calculation
         drr = np.diff(rr_intervals)
         short = range(4, 16 + 1)
