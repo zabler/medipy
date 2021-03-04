@@ -257,21 +257,21 @@ class Ecg(metaclass=abc.ABCMeta):
         '''
         
         if len(rr_intervals) == 0:
-            self.unplausible_no_data+=1
+            self.unplausible_no_data += 1
             return False
         else:
             rr_median = np.median(rr_intervals) 
             intervals_theoretical = (window*1000) / rr_median
             intervals_actual = len(rr_intervals)
             if intervals_actual not in range(int(intervals_theoretical * (1 - normal_level)), int(intervals_theoretical * (1 + normal_level))):
-                self.unplausible_not_normal+=1
+                self.unplausible_not_normal += 1
                 return False
             else:
                 if self.rr_interval_kubios_artefact_detector(rr_intervals) > artefact_level * len(rr_intervals):
-                    self.unplausible_artefacts+=1
+                    self.unplausible_artefacts += 1
                     return False
                 else:
-                    self.plausible +=1
+                    self.plausible += 1
                     return True
 
     def hrv_features_time(self, rr_intervals):
@@ -285,7 +285,7 @@ class Ecg(metaclass=abc.ABCMeta):
         rr_median = np.median(rr_intervals)
         rr_mean = np.mean(rr_intervals)
         sdnn = np.std(rr_intervals, ddof=1)
-        sdsd = np.sqrt(np.mean(drr_dev))
+        sdsd = np.sqrt(np.mean(drr_dev)**2)
         rmssd = np.sqrt(np.mean(drr ** 2))
         nn50 = sum(np.abs(drr) > 50)
         pnn50 = (nn50 / len(rr_intervals)) * 100
@@ -314,10 +314,10 @@ class Ecg(metaclass=abc.ABCMeta):
         # For Calculation
         rr_timestamps_cumsum = np.cumsum(rr_intervals) /1000 # in sec damit Hz
         rr_timestamps = rr_timestamps_cumsum - rr_timestamps_cumsum[0]
+        # rr_intervals = rr_intervals / 1000 # damit Magnitude in sec
 
         # LombScargle by Astropy
-        freq, psd = LombScargle(rr_timestamps, rr_intervals, normalization='psd').autopower(minimum_frequency=0.04, maximum_frequency=0.40)
-        psd = np.divide(psd,100000)  # damit Magnitude in ms^2/Hz
+        freq, psd = LombScargle(rr_timestamps, rr_intervals, normalization='psd').autopower(minimum_frequency=0.040, maximum_frequency=0.400, samples_per_peak=5)
         
         # LF Band                                                       
         lf_indexes = np.logical_and(freq >= 0.04, freq < 0.15)
@@ -347,8 +347,12 @@ class Ecg(metaclass=abc.ABCMeta):
         return freqency_features
 
     def hrv_features_nonlinear(self, rr_intervals):
-
+        # For Calculation
         drr = np.diff(rr_intervals)
+        short = range(4, 16 + 1)
+        long = range(17, 64 + 1)
+
+        # Poincare Features
         sd1 = np.sqrt(np.std(drr, ddof=1) ** 2 * 0.5)
         sd2 = np.sqrt(2 * np.std(rr_intervals, ddof=1) ** 2 - 0.5 * np.std(drr, ddof=1) ** 2)
         T = 4 * sd1
@@ -356,13 +360,14 @@ class Ecg(metaclass=abc.ABCMeta):
         csi = sd2 / sd1
         modified_csi = L ** 2 / T
         cvi = np.log10(L * T)
-        # df_alpha_1 nolds
-        # df_alpha_2 nolds
 
-        samp_en = nolds.sampen(rr_intervals, emb_dim=2)
-        # ap_en
-        # cd_d2 nolds
-        # check neurokit
+        # DFA Features
+        if len(rr_intervals) > 2:
+            df_alpha_1 = nolds.dfa(rr_intervals, short, debug_data=False, overlap=False)
+            df_alpha_2 = nolds.dfa(rr_intervals, long, debug_data=False, overlap=False)
+        else:
+            df_alpha_1 = np.nan
+            df_alpha_2 = np.nan
 
         nonlinear_features = {
             'SD1': sd1,
@@ -370,10 +375,8 @@ class Ecg(metaclass=abc.ABCMeta):
             'CSI': csi,
             'MODIFIED_CSI': modified_csi,
             'CVI': cvi,
-            # 'DF_ALPHA_1': df_alpha_1,
-            # 'DF_ALPHA_2': df_alpha_2,
-            # 'APEN': ap_en,
-            # 'SAMPEN' samp_en
+            'DF_ALPHA_1': df_alpha_1,
+            'DF_ALPHA_2': df_alpha_2
         }
 
         return nonlinear_features

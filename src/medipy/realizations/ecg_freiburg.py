@@ -6,11 +6,12 @@ import math
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 from pyedflib import highlevel
 from medipy.interfaces.ecg import Ecg
 from astropy.timeseries import LombScargle
-import astropy.units as u
+import nolds
 
 class EcgFreiburg(Ecg):
     '''
@@ -24,7 +25,9 @@ class EcgFreiburg(Ecg):
         self.meta = None
         self.feature_df = None
         self.patient_id = None
-    
+        self.colours = {'blue': (0, 0.4470, 0.7410), 'red': (0.8500, 0.3250, 0.0980), 'yellow': (0.9290, 0.6940, 0.1250), 'purple': (0.4940, 0.1840, 0.5560), 'grey': (0.5140, 0.5140, 0.5140),
+        'wine': (0.6350, 0.0780, 0.1840)}
+        
     def data_reader(self, path):
         '''
         This method reads a ecg signal from edfplus in the format of uniklinik freiburg
@@ -94,9 +97,9 @@ class EcgFreiburg(Ecg):
         - Der DataFrame wird unter "export" exportiert
         '''
         # Feature Names
-        time_feature_names = ['RR_MEDIAN', 'RR_MEAN', 'SDNN', 'RMSSD', 'NN50', 'pNN50', 'HR_MAX_MIN', 'HR_MEAN', 'TRI']
-        frequency_feature_names = ['LF_POWER', 'LF_NU', 'LF_PEAK', 'HF_POWER', 'HF_NU', 'HF_PEAK', 'LF_HF_RATIO']
-        nonlinear_feature_names = ['SD1', 'SD2', 'CSI', 'CVI', 'MODIFIED_CSI', 'SAMPEN']
+        time_feature_names = ['RR_MEDIAN', 'RR_MEAN', 'SDNN','SDSD' 'RMSSD', 'NN50', 'pNN50', 'HR_MEAN', 'HR_MAX_MIN']
+        frequency_feature_names = ['LF_POWER', 'HF_POWER', 'LF_HF_RATIO', 'LF_NU', 'HF_NU', 'LF_PEAK', 'HF_PEAK']
+        nonlinear_feature_names = ['SD1', 'SD2', 'CSI', 'MODIFIED_CSI', 'CVI', 'DF_ALPHA_1', 'DF_ALPHA_2', 'APEN', 'SAMPEN']
 
         # Samples in Dataframe
         samples_df = pd.DataFrame({'SAMPLES': self.samples}, index=self.grid)
@@ -168,15 +171,7 @@ class EcgFreiburg(Ecg):
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
-
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
-
+       
         # Plot Data
         plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
         
@@ -207,14 +202,6 @@ class EcgFreiburg(Ecg):
         fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=(12, 6))
         gs1 = gridspec.GridSpec(5, 1)
         gs1.update(hspace=0)
-
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
 
         # Plot Bereich
         lower_limit = start_sec_abs*self.sample_rate
@@ -281,18 +268,10 @@ class EcgFreiburg(Ecg):
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
 
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
-
         # Plot Data
         plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
         peaks = [int(r_peak/self.period_ms) for r_peak in self.r_peaks]
-        plt.plot(peaks, self.samples[peaks],'x',color=red, linewidth=4, label='R-Zacken')
+        plt.plot(peaks, self.samples[peaks],'x',color=self.colours['wine'], linewidth=4, label='R-Zacken', markersize=8)
 
         # Plot Bereich
         lower_limit = start_sec_abs*self.sample_rate
@@ -320,14 +299,6 @@ class EcgFreiburg(Ecg):
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
 
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
-
         # Plot Bereich
         lower_limit = start_sec_abs*1000
         upper_limit = start_sec_abs*1000+duration_sec_rel*1000
@@ -340,7 +311,7 @@ class EcgFreiburg(Ecg):
         
         # Plot Data
         plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
-        plt.plot(local_rr_intervals, color=red, linewidth=1.5, label='RR-Intervall-Liste')
+        plt.plot(local_rr_intervals, color=self.colours['wine'], linewidth=1.5, label='RR-Intervall-Liste')
         
         # Plot Settings
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
@@ -357,14 +328,6 @@ class EcgFreiburg(Ecg):
         '''
         plots all rr intervall erros incl. the ecg origin for the exmaple signal
         '''
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
-
         # Plot Bereich
         lower_limit_s = start_sec_abs*self.sample_rate
         upper_limit_s = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
@@ -386,8 +349,8 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(9, 2.5))
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
-        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
-        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
+        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=self.colours['wine'], linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
         plt.grid(b=True, which='major', axis='both')
@@ -405,8 +368,8 @@ class EcgFreiburg(Ecg):
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
         plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
-        plt.bar([3,4], error_rr_intervals[3:5], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
-        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        plt.bar([3,4], error_rr_intervals[3:5], width=1, align='center', color='white', edgecolor=self.colours['wine'], linewidth=3)
+        plt.plot(error_rr_intervals, color=self.colours['blue'], linewidth=2)
         new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         plt.gca().set_xticks(new_xticks)
         new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -430,8 +393,8 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(9, 2.5))
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
-        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
-        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
+        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=self.colours['wine'], linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
         plt.grid(b=True, which='major', axis='both')
@@ -449,8 +412,8 @@ class EcgFreiburg(Ecg):
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
         plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
-        plt.bar([3,4], error_rr_intervals[3:5], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
-        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        plt.bar([3,4], error_rr_intervals[3:5], width=1, align='center', color='white', edgecolor=self.colours['wine'], linewidth=3)
+        plt.plot(error_rr_intervals, color=self.colours['blue'], linewidth=2)
         new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         plt.gca().set_xticks(new_xticks)
         new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -474,8 +437,8 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(9, 2.5))
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
-        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
-        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
+        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=self.colours['wine'], linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
         plt.grid(b=True, which='major', axis='both')
@@ -493,8 +456,8 @@ class EcgFreiburg(Ecg):
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
         plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
-        plt.bar([3], error_rr_intervals[3], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
-        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        plt.bar([3], error_rr_intervals[3], width=1, align='center', color='white', edgecolor=self.colours['wine'], linewidth=3)
+        plt.plot(error_rr_intervals, color=self.colours['blue'], linewidth=2)
         new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         plt.gca().set_xticks(new_xticks)
         new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -518,7 +481,7 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(9, 2.5))
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
-        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
         #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
@@ -537,8 +500,8 @@ class EcgFreiburg(Ecg):
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
         plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
-        plt.bar([2], error_rr_intervals[2], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
-        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        plt.bar([2], error_rr_intervals[2], width=1, align='center', color='white', edgecolor=self.colours['wine'], linewidth=3)
+        plt.plot(error_rr_intervals, color=self.colours['blue'], linewidth=2)
         new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         plt.gca().set_xticks(new_xticks)
         new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -562,7 +525,7 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(9, 2.5))
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
-        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
         #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
@@ -581,8 +544,8 @@ class EcgFreiburg(Ecg):
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
         plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
-        plt.bar([4,5], error_rr_intervals[4:6], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
-        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        plt.bar([4,5], error_rr_intervals[4:6], width=1, align='center', color='white', edgecolor=self.colours['wine'], linewidth=3)
+        plt.plot(error_rr_intervals, color=self.colours['blue'], linewidth=2)
         new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         plt.gca().set_xticks(new_xticks)
         new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -606,7 +569,7 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(9, 2.5))
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
-        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=red, linewidth=3, markersize=8, label='R-Zacken')
+        plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks],'x',color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
         #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
@@ -625,8 +588,8 @@ class EcgFreiburg(Ecg):
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
         plt.bar(np.arange(len(error_rr_intervals)), error_rr_intervals, width=1, align='center', color='white', edgecolor='black', linewidth=1.5)
-        plt.bar([3], error_rr_intervals[3], width=1, align='center', color='white', edgecolor=wine, linewidth=3)
-        plt.plot(error_rr_intervals, color=red, linewidth=2)
+        plt.bar([3], error_rr_intervals[3], width=1, align='center', color='white', edgecolor=self.colours['wine'], linewidth=3)
+        plt.plot(error_rr_intervals, color=self.colours['blue'], linewidth=2)
         new_xticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         plt.gca().set_xticks(new_xticks)
         new_time = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -647,14 +610,6 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(12, 4))
         ax1 = fig.add_subplot(111)
         ax2 = ax1.twiny()
-
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
 
         # Plot Bereich
         lower_limit = start_sec_abs*1000
@@ -680,8 +635,8 @@ class EcgFreiburg(Ecg):
         ax1.set_xlim(800, 1400)
         ax2.set_xlim(800, 1400)
         ax2.set_xticks([])
-        ax2.axvline(x=local_rr_median, label='Median', color=wine, linewidth=4)
-        ax2.axvline(x=local_rr_mean, label='Mittelwert', color=blue, linewidth=4)
+        ax2.axvline(x=local_rr_median, label='Median', color=self.colours['wine'], linewidth=4)
+        ax2.axvline(x=local_rr_mean, label='Mittelwert', color=self.colours['blue'], linewidth=4)
 
 
         # Plot Settings
@@ -699,14 +654,6 @@ class EcgFreiburg(Ecg):
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
 
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
-
         # Plot Bereich
         lower_limit = start_sec_abs*1000
         upper_limit = start_sec_abs*1000+duration_sec_rel*1000
@@ -718,19 +665,17 @@ class EcgFreiburg(Ecg):
             local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
         
         # Plot Data
-        #plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
         plt.plot(local_rr_intervals, color='black', linewidth=1.5, label='RR-Intervall-Folge')
         
         # Plot Settings
-        #plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.xlabel(f'Intervall [k]')
         plt.ylabel('Intervalllänge [ms]')
-        #new_time = [0, 1, 2, 3, 4, 5, 6, 7, 8] # Wegen 9 R-Zacken
-        #plt.gca().set_xticklabels(new_time)
         plt.ylim(800, 1400)
-        #plt.xlim(0,len(local_rr_intervals)-1)
-        plt.xlim(0,)
-        plt.axis('off')
+        plt.xlim(0, len(local_rr_intervals)-1)
+        new_time = [1,50,100,150,200,250]
+        plt.gca().set_xticklabels(new_time)
+        # plt.axis('off')
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '5223_Tachogramm302_des_Beispielsignals.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
@@ -738,14 +683,7 @@ class EcgFreiburg(Ecg):
     def plot_rr_interval_pointcare(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         # Figur Erstellen
         fig = plt.figure(figsize=(6, 6))
-
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
+        ax = fig.add_subplot(111)
 
         # Plot Bereich
         lower_limit = start_sec_abs*1000
@@ -762,30 +700,32 @@ class EcgFreiburg(Ecg):
         x.pop(-1) 
         y = rr_intervals.copy()
         y.pop(0)
-        plt.scatter(x,y,label='Pointcare Plot', color='black', linewidth=1.5)
+        drr = np.diff(rr_intervals)
+        sd1 = np.sqrt(np.std(drr, ddof=1) ** 2 * 0.5)
+        sd2 = np.sqrt(2 * np.std(rr_intervals, ddof=1)** 2 - 0.5 * np.std(drr, ddof=1)** 2)
         
         # Plot
-        plt.xlim(800, 1400)
-        plt.ylim(800, 1400)
-        plt.xlabel(r'RR $[1]$')
-        plt.ylabel(r'RRPLus1 $[1]$')
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
+        ax.scatter(x, y, s=5, label='Poincare', color='black')
+        na = 4
+        ax.arrow(np.mean(rr_intervals), np.mean(rr_intervals), (-sd1 + na) * np.cos(np.deg2rad(45)), (sd1 - na) * np.sin(np.deg2rad(45)), head_width=5, head_length=5, fc=self.colours['blue'], ec=self.colours['blue'], zorder=4, linewidth=1.5)
+        ax.arrow(np.mean(rr_intervals), np.mean(rr_intervals), (sd2 - na) * np.cos(np.deg2rad(45)), (sd2 - na) * np.sin(np.deg2rad(45)), head_width=5, head_length=5, fc=self.colours['wine'], ec=self.colours['wine'], zorder=4, linewidth=1.5)
+        ax.add_line(mpl.lines.Line2D((np.mean(rr_intervals) - sd1 * np.cos(np.deg2rad(45)) * na, np.mean(rr_intervals) + sd1 * np.cos(np.deg2rad(45)) * na), (np.mean(rr_intervals) + sd1 * np.sin(np.deg2rad(45)) * na, np.mean(rr_intervals) - sd1 * np.sin(np.deg2rad(45)) * na), c=self.colours['blue'], ls=':', alpha=0.6))
+        ax.add_line(mpl.lines.Line2D((800, 1400), (800, 1400), c=self.colours['wine'], ls=':', alpha=0.6))
+        ax.set_xlim(800, 1400)
+        ax.set_ylim(800, 1400)
+        ax.scatter(1401, 1401, label='SD1', color=self.colours['blue'])
+        ax.scatter(1401, 1401, label='SD2', color=self.colours['wine'])
+        ax.set_xlabel(r'$RR_j [ms]$')
+        ax.set_ylabel(r'$RR_{j+1} [ms]$')
+        ax.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5224_pointcare.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_poincare.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_dfa(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         # Figur Erstellen
         fig = plt.figure(figsize=(6, 6))
 
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
-
         # Plot Bereich
         lower_limit = start_sec_abs*1000
         upper_limit = start_sec_abs*1000+duration_sec_rel*1000
@@ -797,34 +737,37 @@ class EcgFreiburg(Ecg):
             rri_sum = rri_sum + rri
             if rri_sum in range(lower_limit, upper_limit):
                 rr_intervals.append(rri)
-        x = rr_intervals.copy()
-        x.pop(-1) 
-        y = rr_intervals.copy()
-        y.pop(0)
-        plt.scatter(x,y,label='Pointcare Plot', color='black', linewidth=1.5)
-        
+
+        short = range(4, 16+1)
+        long = range(17, 64+1)
+        alpha1, dfa_short = nolds.dfa(rr_intervals, short, debug_data=True, overlap=False)
+        vals1 = dfa_short[0]
+        flucts1 = dfa_short[1]
+        poly1 = np.polyval(dfa_short[2], dfa_short[0])
+        alpha2, dfa_long = nolds.dfa(rr_intervals, long, debug_data=True, overlap=False)
+        vals2 = dfa_long[0]
+        flucts2 = dfa_long[1]
+        poly2 = np.polyval(dfa_long[2], dfa_long[0])
+
         # Plot
-        plt.xlim(800, 1400)
-        plt.ylim(800, 1400)
-        plt.xlabel(r'RR $[1]$')
-        plt.ylabel(r'RRPLus1 $[1]$')
+        plt.plot(vals1, flucts1, 'o', color='black', markersize=3, label='DFA')
+        plt.plot(vals1, poly1, color=self.colours['blue'], label=r'$\alpha_{1}$')#: '+f'{alpha1.round(decimals=2)}')
+        plt.plot(vals2, flucts2, 'o', markersize=3, color='black')
+        plt.plot(vals2, poly2, color=self.colours['wine'], label=r'$\alpha_{2}$')#: ' + f'{alpha2.round(decimals=2)}')
+        
+        # plt.xlim(1.0, 3.5)
+        # plt.ylim(3.5, 6.0)
+        plt.xlabel('ln [n]')
+        plt.ylabel('ln F[n]')
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5224_pointcare.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_DFA.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_psd(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
 
-        # Colors
-        blue = (0, 0.4470, 0.7410)
-        red = (0.8500, 0.3250, 0.0980)
-        yellow = (0.9290, 0.6940, 0.1250)
-        purple = (0.4940, 0.1840, 0.5560)
-        grey = (0.5140, 0.5140, 0.5140)
-        wine = (0.6350, 0.0780, 0.1840)
-
         # Plot Bereich
         lower_limit = start_sec_abs*1000
         upper_limit = start_sec_abs*1000+duration_sec_rel*1000
@@ -835,20 +778,28 @@ class EcgFreiburg(Ecg):
         for rri in self.rr_intervals:
             rri_sum = rri_sum + rri
             if rri_sum in range(lower_limit, upper_limit):
-                rr_intervals.append(rri)
+                rr_intervals.append(int(rri))
 
         rr_timestamps_cumsum = np.cumsum(rr_intervals) /1000 # in sec damit Hz
-        rr_timestamps = rr_timestamps_cumsum - rr_timestamps_cumsum[0] #* u.s
+        rr_timestamps = (rr_timestamps_cumsum - rr_timestamps_cumsum[0])
+        rr_intervals = np.divide(rr_intervals,1000)
 
-        freq, psd = LombScargle(rr_timestamps, rr_intervals,normalization='psd').autopower(minimum_frequency=0.040,maximum_frequency=0.400)#, samples_per_peak=5)
-        #psd =np.divide(psd,100000)  # damit Magnitude in ms^2/Hz
+        freq, psd = LombScargle(rr_timestamps, rr_intervals,normalization='psd').autopower(minimum_frequency=0.040,maximum_frequency=0.400, samples_per_peak=5)
+        # psd = psd * 100000 # damit Magnitude in ms^2/Hz
+        lf = [f for f in freq if f <= 0.150]
+        hf = [f for f in freq if f > 0.150]
+
         # Plot
         plt.plot(freq, psd, label='Periodogramm', color='black', linewidth=1.5)
-        ##plt.xlim(40, 400)
-        #plt.ylim(0, 1)
-        plt.xlabel(f'Frequenz [mHz]')
-        plt.ylabel(r'Magnitude $[ms^2/mHz]$')
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
+        plt.fill_between(lf, psd[:len(lf)], color=self.colours['blue'], label=r'$LF_{power}$')
+        plt.fill_between(hf, psd[len(lf):], color=self.colours['wine'], label=r'$HF_{power}$')
+        plt.axvline(x=lf[np.argmax(psd[:len(lf)])], color=self.colours['blue'], label=r'$LF_{peak}$', linestyle='dashed')
+        plt.axvline(x=hf[np.argmax(psd[len(lf):])], color=self.colours['wine'], label=r'$HF_{peak}$', linestyle='dashed')
+        plt.xlim(0.040, 0.400)
+        plt.ylim(0, 0.3)
+        plt.xlabel(r'Frequenz $[Hz]$')
+        plt.ylabel(r'Magnitude $[s^2/Hz]$')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=5)
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '5224_PSD.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
