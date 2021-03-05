@@ -365,7 +365,7 @@ class Ecg(metaclass=abc.ABCMeta):
         T = 4 * sd1
         L = 4 * sd2
         csi = sd2 / sd1
-        modified_csi = L ** 2 / T
+        modified_csi = (L ** 2) / T
         cvi = np.log10(L * T)
 
         # DFA Features

@@ -101,7 +101,7 @@ class EcgFreiburg(Ecg):
         # Feature Names
         time_feature_names = ['RR_MEDIAN', 'RR_MEAN', 'SDNN', 'SDSD', 'RMSSD', 'NN50', 'pNN50', 'HR_MEAN', 'HR_MAX_MIN']
         frequency_feature_names = ['LF_POWER', 'HF_POWER', 'LF_HF_RATIO', 'LF_NU', 'HF_NU', 'LF_PEAK', 'HF_PEAK']
-        nonlinear_feature_names = ['SD1', 'SD2', 'CSI', 'MODIFIED_CSI', 'CVI', 'DF_ALPHA_1', 'DF_ALPHA_2', 'APEN', 'SAMPEN']
+        nonlinear_feature_names = ['SD1', 'SD2', 'CSI', 'MODIFIED_CSI', 'CVI', 'DF_ALPHA_1', 'DF_ALPHA_2']
 
         # Samples in Dataframe
         samples_df = pd.DataFrame({'SAMPLES': self.samples}, index=self.grid)
@@ -313,7 +313,7 @@ class EcgFreiburg(Ecg):
 
         # Plot Data
         plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
-        plt.plot(local_rr_intervals, color=self.colours['wine'], linewidth=1.5, label='RR-Intervall-Liste')
+        plt.plot(local_rr_intervals, color=self.colours['blue'], linewidth=1.5, label='RR-Intervall-Folge')
 
         # Plot Settings
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
@@ -365,7 +365,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Origin_A1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Origin_A1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
@@ -382,7 +382,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Type_A1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Type_A1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # ERROR TYPE A2: ECTOPIC SHORT LONG
         error_peaks = list(local_r_peaks)
@@ -409,7 +409,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Origin_A2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Origin_A2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
@@ -426,7 +426,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Type_A2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Type_A2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # ERROR TYPE B1: LONG INTERVALL
         error_peaks = list(local_r_peaks)
@@ -453,7 +453,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Origin_B1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Origin_B1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
@@ -470,7 +470,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Type_B1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Type_B1.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # ERROR TYPE B2: SHORT INTERVALL
         error_peaks = list(local_r_peaks)
@@ -497,7 +497,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Origin_B2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Origin_B2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
@@ -514,7 +514,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Type_B2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Type_B2.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # ERROR TYPE C: EXTRA
         error_peaks = list(local_r_peaks)
@@ -541,7 +541,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Origin_C.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Origin_C.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
@@ -558,7 +558,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Type_C.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Type_C.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # ERROR TYPE D: MISSED
         error_peaks = list(local_r_peaks)
@@ -585,7 +585,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Origin_D.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Origin_D.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
         # Plot Error Type
         fig = plt.figure(figsize=(9, 2.5))
@@ -602,7 +602,7 @@ class EcgFreiburg(Ecg):
         plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Error_Type_D.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Error_Type_D.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_histogram(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
@@ -632,7 +632,7 @@ class EcgFreiburg(Ecg):
         bin_sequence = np.arange(800, 1400 + 1, 10)
         ax1.hist(local_rr_intervals, bins=bin_sequence, label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
         #props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-        textstr = '\n'.join((f'Theoretische Anzahl RR-Intervalle nach Median: {theo_number}', f'Theoretische Anzahl RR-Intervalle im Mittel: {theo2_number}', f'Tatsächliche Anzahl RR-Intervalle: {real_number}'))
+        textstr = '\n'.join((f'Theoretische Anzahl RR-Intervalle im Median: {theo_number}', f'Theoretische Anzahl RR-Intervalle im Mittel: {theo2_number}', f'Tatsächliche Anzahl RR-Intervalle: {real_number}'))
         ax1.text(0.05, 0.95, textstr, transform=ax1.transAxes, fontsize=8, verticalalignment='top')#, bbox=props)
         ax1.set_xlim(800, 1400)
         ax2.set_xlim(800, 1400)
@@ -647,11 +647,11 @@ class EcgFreiburg(Ecg):
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5224_Tachogramm_eines_5-Minuten-Abschnitts.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Histogramm_eines_5-Minuten-Abschnitts_und_Intervallschätzung.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_tachogram(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
-        plots the tachogram only as a line of of rr intervals
+        plots the tachogram only as a line of rr intervals
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
@@ -680,7 +680,7 @@ class EcgFreiburg(Ecg):
         # plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5223_Tachogramm302_des_Beispielsignals.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
+            plt.savefig(save_graphic + '2211_Zeitliche_Darstellung_einer_RR-Intervall-Folge.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
 
     def plot_rr_interval_pointcare(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
@@ -725,7 +725,7 @@ class EcgFreiburg(Ecg):
         ax.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5224_poincare.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '2212_Poincare_Diagramm.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_dfa(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
@@ -770,7 +770,7 @@ class EcgFreiburg(Ecg):
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5224_DFA.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '2212_Trendbereinigte_Fluktuationsanalyse.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_psd(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
@@ -813,4 +813,4 @@ class EcgFreiburg(Ecg):
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=5)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5224_PSD.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '2213_Schätzung_des_Leistungsdichtespektrums_der_RR_Intervall_Folge.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
