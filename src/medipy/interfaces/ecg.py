@@ -26,11 +26,15 @@ class Ecg(metaclass=abc.ABCMeta):
         self.grid = None
         self.r_peaks = []
         self.rr_intervals = []
-        self.rr_artefacts = []
+        self.rr_checked = []
+        self.plausible = 0
         self.unplausible_no_data = 0
         self.unplausible_not_normal = 0
         self.unplausible_artefacts = 0
-        self.plausible = 0
+        self.ectopic_intervals = []
+        self.missed_intervals = []
+        self.extra_intervals = []
+        self.long_short_intervals = []
 
     def save_object(self, file):
         '''
@@ -189,6 +193,7 @@ class Ecg(metaclass=abc.ABCMeta):
         '''
         This method detects artefacts of a given rr interval list with an modified version of Lipponen and Tarvainen (Kubios) algorithm
         '''
+        self.rr_checked.append(len(rr_intervals))
         alpha = 5.2
         drr_intervals = np.diff(rr_intervals)
         drr_intervals = np.insert(drr_intervals, 0, 0)
@@ -213,14 +218,16 @@ class Ecg(metaclass=abc.ABCMeta):
         threshold_2 = ((np.quantile(mrr_intervals, 0.75) - np.quantile(mrr_intervals, 0.25)) / 2) * alpha
         mrr_intervals = mrr_intervals / threshold_2
 
-        ectopic_beats = 0
-        missed_beats = 0
-        extra_beats = 0
+        ectopic_intervals = 0
+        missed_intervals = 0
+        extra_intervals = 0
         long_short_intervals = 0
         const_1 = 0.13
         const_2 = 0.17
+        index = 0
 
-        for index in range(len(drr_intervals)-2):
+        #for index in range(len(drr_intervals)-2):
+        while index in range(len(drr_intervals)-2):
             if abs(drr_intervals[index]) > 1:
                 s11 = drr_intervals[index]
                 if s11 > 0:
@@ -228,26 +235,43 @@ class Ecg(metaclass=abc.ABCMeta):
                 else:
                     s12 = min(drr_intervals[index - 1:index + 1])
                 if (s11 > 1 and s12 < const_1 * s11 - const_2) or (s11 < -1 and s12 > -const_1 * s11 + const_2):
-                    ectopic_beats += 1
+                    ectopic_intervals += 2
+                    self.ectopic_intervals.append(2)
+                    index += 2
                     continue
+                elif abs(drr_intervals[index]) > 1 or abs(mrr_intervals[index]) > 3:
+                    if (np.sign(drr_intervals[index]) * drr_intervals[index + 1] < -1) or (abs(mrr_intervals[index]) > 3) or (np.sign(drr_intervals[index]) * drr_intervals[index + 2] < -1):
+                        if abs((rr_intervals[index] / 2) - mrr_intervals[index]) < threshold_2:
+                            weight = math.floor(np.divide(rr_intervals[index], np.median(rr_intervals))) - 1
+                            missed_intervals += int(weight)
+                            self.missed_intervals.append(int(weight))
+                            index += 1
+                            continue
+                        elif abs(rr_intervals[index]+rr_intervals[index]-mrr_intervals[index]) < threshold_2:
+                            extra_intervals += 2
+                            self.extra_intervals.append(2)
+                            index += 2
+                            continue
+                        elif (np.sign(drr_intervals[index]) * drr_intervals[index + 1] < -1) or (abs(mrr_intervals[index]) > 3):
+                            long_short_intervals += 1
+                            self.long_short_intervals.append(1)
+                            index += 1
+                            continue
+                        elif np.sign(drr_intervals[index]) * drr_intervals[index + 2] < -1:
+                            long_short_intervals += 2
+                            self.long_short_intervals.append(2)
+                            index += 2
+                            continue
+                        else:
+                            index += 1
+                    else:
+                        index += 1
                 else:
-                    if abs(drr_intervals[index]) > 1 or abs(mrr_intervals[index]) > 3:
-                        if (np.sign(drr_intervals[index]) * drr_intervals[index + 1] < -1) or (abs(mrr_intervals[index]) > 3) or (np.sign(drr_intervals[index]) * drr_intervals[index + 2] < -1):
-                            if abs((rr_intervals[index]/2)-mrr_intervals[index]) < threshold_2:
-                                missed_beats += 1
-                                continue
-                            elif abs(rr_intervals[index]+rr_intervals[index]-mrr_intervals[index]) < threshold_2:
-                                extra_beats += 1
-                                continue
-                            elif (np.sign(drr_intervals[index]) * drr_intervals[index + 1] < -1) or (abs(mrr_intervals[index]) > 3):
-                                long_short_intervals += 1
-                                continue
-                            elif np.sign(drr_intervals[index]) * drr_intervals[index + 2] < -1:
-                                long_short_intervals += 2
-                                continue
-        
-        self.rr_artefacts.append(ectopic_beats + long_short_intervals + missed_beats + extra_beats)
-        return ectopic_beats + missed_beats + extra_beats + long_short_intervals
+                    index += 1
+            else:
+                index += 1
+
+        return ectopic_intervals + missed_intervals + extra_intervals + long_short_intervals
 
     def rr_plausibility_check(self, rr_intervals, window=300, normal_level=0.1, artefact_level=0.01):
         '''
