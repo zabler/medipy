@@ -198,24 +198,21 @@ class Ecg(metaclass=abc.ABCMeta):
         drr_intervals = np.diff(rr_intervals)
         drr_intervals = np.insert(drr_intervals, 0, 0)
         #MODIFIED NOT 90 SUROUNDING, USE ALL INTERVALS OF 5 MIN WINDOOW FOR TH1
-        threshold_1 = ((np.quantile(rr_intervals, 0.75) - np.quantile(rr_intervals, 0.25)) / 2) * alpha
-        drr_intervals = drr_intervals/threshold_1
+        threshold_1 = ((np.quantile(abs(drr_intervals), 0.75) - np.quantile(abs(drr_intervals), 0.25)) / 2) * alpha
+        drr_intervals = drr_intervals / threshold_1
+        medrr_intervals = []
         mrr_intervals = []
         for index, rr_interval in enumerate(rr_intervals):
             if index < 5 or index > (len(rr_intervals) - 5):
-                mrr_interval = rr_interval - np.median(rr_intervals)
-                if mrr_interval < 0:
-                    mrr_intervals.append(2 * mrr_interval)
-                else:
-                    mrr_intervals.append(mrr_interval)
+                medrr_intervals.append(np.median(rr_intervals))
+                mrr_intervals.append(rr_interval - np.median(rr_intervals))
             else:
-                mrr_interval = rr_interval - np.median(rr_intervals[index - 5:index + 5])
-                if mrr_interval < 0:
-                    mrr_intervals.append(2 * mrr_interval)
-                else:
-                    mrr_intervals.append(mrr_interval)
+                medrr_intervals.append(np.median(rr_intervals[index - 5:index + 6]))
+                mrr_intervals.append(rr_interval - np.median(rr_intervals[index - 5:index + 6]))
+
         #MODIFIED NOT 90 SUROUNDING, USE ALL INTERVALS OF 5 MIN WINDOOW FOR TH2
-        threshold_2 = ((np.quantile(mrr_intervals, 0.75) - np.quantile(mrr_intervals, 0.25)) / 2) * alpha
+        mrr_intervals = np.array(mrr_intervals)
+        threshold_2 = ((np.quantile(abs(mrr_intervals), 0.75) - np.quantile(abs(mrr_intervals), 0.25)) / 2) * alpha
         mrr_intervals = mrr_intervals / threshold_2
 
         ectopic_intervals = 0
@@ -224,46 +221,56 @@ class Ecg(metaclass=abc.ABCMeta):
         long_short_intervals = 0
         const_1 = 0.13
         const_2 = 0.17
-        index = 0
+        index = 1
 
-        #for index in range(len(drr_intervals)-2):
-        while index in range(len(drr_intervals)-2):
+        while index < len(drr_intervals)-2:
             if abs(drr_intervals[index]) > 1:
                 s11 = drr_intervals[index]
                 if s11 > 0:
-                    s12 = max(drr_intervals[index - 1:index + 1])
+                    s12 = max(drr_intervals[index - 1:index + 2])
                 else:
-                    s12 = min(drr_intervals[index - 1:index + 1])
-                if (s11 > 1 and s12 < const_1 * s11 - const_2) or (s11 < -1 and s12 > -const_1 * s11 + const_2):
+                    s12 = min(drr_intervals[index - 1:index + 2])
+                eq1 = ((s11 > 1) and (s12 < -const_1 * s11 - const_2))
+                eq2 = ((s11 < -1) and (s12 > -const_1 * s11 + const_2))
+                if eq1 or eq2: #Ectopic
                     ectopic_intervals += 2
                     self.ectopic_intervals.append(2)
                     index += 2
                     continue
-                elif abs(drr_intervals[index]) > 1 or abs(mrr_intervals[index]) > 3:
-                    if (np.sign(drr_intervals[index]) * drr_intervals[index + 1] < -1) or (abs(mrr_intervals[index]) > 3) or (np.sign(drr_intervals[index]) * drr_intervals[index + 2] < -1):
-                        if abs((rr_intervals[index] / 2) - mrr_intervals[index]) < threshold_2:
-                            weight = math.floor(np.divide(rr_intervals[index], np.median(rr_intervals))) - 1
-                            missed_intervals += int(weight)
-                            self.missed_intervals.append(int(weight))
-                            index += 1
-                            continue
-                        elif abs(rr_intervals[index]+rr_intervals[index]-mrr_intervals[index]) < threshold_2:
+                elif abs(mrr_intervals[index]) > 1:
+                    s21 = drr_intervals[index]
+                    if s21 >= 0:
+                        s22 = min(drr_intervals[index + 1:index + 3])
+                    else:
+                        s22 = max(drr_intervals[index + 1:index + 3])
+                    eq3 = (s21 < -1 and s22 > 1)
+                    eq4a = ((mrr_intervals[index]) < -1)
+                    eq4b = ((mrr_intervals[index]) > 1)
+                    eq5 = (s21 > 1 and s22 < -1)
+                    if eq3 and eq4a:
+                        eq6 = abs(rr_intervals[index]+rr_intervals[index+1]-medrr_intervals[index]) < threshold_2
+                        if eq6: # Extra
                             extra_intervals += 2
                             self.extra_intervals.append(2)
                             index += 2
                             continue
-                        elif (np.sign(drr_intervals[index]) * drr_intervals[index + 1] < -1) or (abs(mrr_intervals[index]) > 3):
+                        else: # Short
+                            long_short_intervals += 1
+                            self.long_short_intervals.append(1)
+                            index += 1
+                    elif eq5 and eq4b:
+                        eq7 = rr_intervals[index] / medrr_intervals[index] > 2
+                        if eq7: # Missed
+                            weight = math.floor(np.divide(rr_intervals[index], np.median(rr_intervals)))
+                            missed_intervals += int(weight)
+                            self.missed_intervals.append(int(weight))
+                            index += 1
+                            continue
+                        else: # Long
                             long_short_intervals += 1
                             self.long_short_intervals.append(1)
                             index += 1
                             continue
-                        elif np.sign(drr_intervals[index]) * drr_intervals[index + 2] < -1:
-                            long_short_intervals += 2
-                            self.long_short_intervals.append(2)
-                            index += 2
-                            continue
-                        else:
-                            index += 1
                     else:
                         index += 1
                 else:
