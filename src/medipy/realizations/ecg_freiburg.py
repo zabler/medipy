@@ -217,7 +217,7 @@ class EcgFreiburg(Ecg):
         plt.xlim(lower_limit, upper_limit)
         plt.ylim(-1, 3)
         plt.yticks([])
-        plt.ylabel('Raw Signal')
+        plt.ylabel('Rohsignal')
 
         ax2 = plt.subplot(gs1[1])
         ax2.grid(True)
@@ -225,7 +225,7 @@ class EcgFreiburg(Ecg):
         plt.plot(self.samples_filtered, linewidth=1.5, color='black')
         plt.xlim(lower_limit, upper_limit)
         plt.yticks([])
-        plt.ylabel('BP Filtered')
+        plt.ylabel('BP-Filter')
 
         ax3 = plt.subplot(gs1[2])
         ax3.grid(True)
@@ -234,7 +234,7 @@ class EcgFreiburg(Ecg):
         plt.plot(samples_diff, linewidth=1.5, color='black')
         plt.xlim(lower_limit, upper_limit)
         plt.yticks([])
-        plt.ylabel('Differentiated')
+        plt.ylabel('5P-Diff')
 
         ax4 = plt.subplot(gs1[3])
         ax4.grid(True)
@@ -243,14 +243,14 @@ class EcgFreiburg(Ecg):
         plt.plot(samples_rect, label='Rectified', linewidth=1.5, color='black')
         plt.xlim(lower_limit, upper_limit)
         plt.yticks([])
-        plt.ylabel('Rectified')
+        plt.ylabel('Gleichrichter')
 
         ax5 = plt.subplot(gs1[4])
         ax5.grid(True)
         preprocessed = np.insert(self.preprocessed, 0, self.preprocessed[0])
         plt.plot(preprocessed, linewidth=1.5, color='black')
         plt.yticks([])
-        plt.ylabel('MA Filtered')
+        plt.ylabel('GM-Filter')
 
         # Plot Settings
         plt.xlim(lower_limit, upper_limit)
@@ -667,7 +667,7 @@ class EcgFreiburg(Ecg):
             local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
 
         # Plot Data
-        plt.plot(local_rr_intervals, color='black', linewidth=1.5, label='RR-Intervall-Folge')
+        plt.plot(local_rr_intervals, color='black', linewidth=1.5, label='NN-Intervall-Folge')
 
         # Plot Settings
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
@@ -680,7 +680,7 @@ class EcgFreiburg(Ecg):
         # plt.axis('off')
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '2211_Zeitliche_Darstellung_einer_RR-Intervall-Folge.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
+            plt.savefig(save_graphic + '2211_Kontinuierliche_Darstellung_einer_NN-Intervall-Folge.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
 
     def plot_rr_interval_pointcare(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
@@ -720,12 +720,12 @@ class EcgFreiburg(Ecg):
         ax.set_ylim(800, 1400)
         ax.scatter(1401, 1401, label='SD1', color=self.colours['blue'])
         ax.scatter(1401, 1401, label='SD2', color=self.colours['wine'])
-        ax.set_xlabel(r'$RR_j [ms]$')
-        ax.set_ylabel(r'$RR_{j+1} [ms]$')
+        ax.set_xlabel(r'$NN_j [ms]$')
+        ax.set_ylabel(r'$NN_{j+1} [ms]$')
         ax.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '2212_Poincare_Diagramm.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '2213_Poincare_Diagramm.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_dfa(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
@@ -770,7 +770,7 @@ class EcgFreiburg(Ecg):
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '2212_Trendbereinigte_Fluktuationsanalyse.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '2213_Trendbereinigte_Fluktuationsanalyse.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_psd(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
@@ -813,4 +813,4 @@ class EcgFreiburg(Ecg):
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=5)
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '2213_Schätzung_des_Leistungsdichtespektrums_der_RR_Intervall_Folge.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '2212_Schätzung_des_Leistungsdichtespektrums_der_NN_Intervall_Folge.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
