@@ -11,6 +11,7 @@ import matplotlib.gridspec as gridspec
 from pyedflib import highlevel
 from astropy.timeseries import LombScargle
 import nolds
+import csv  
 from medipy.interfaces.ecg import Ecg
 
 class EcgFreiburg(Ecg):
@@ -814,3 +815,52 @@ class EcgFreiburg(Ecg):
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '2212_Schätzung_des_Leistungsdichtespektrums_der_NN_Intervall_Folge.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+
+    def export_error_stats(self, path, name):
+        name = [name]
+
+        window_stats = []
+        window_stats.append(self.plausible+self.unplausible_no_data+self.unplausible_not_normal+self.unplausible_artefacts)
+        window_stats.append(self.plausible)
+        window_stats.append(self.unplausible_no_data+self.unplausible_not_normal+self.unplausible_artefacts)
+        window_stats.append(self.unplausible_no_data)
+        window_stats.append(self.unplausible_not_normal)
+        window_stats.append(self.unplausible_artefacts)
+        
+        rr_stats = []
+        artefacts_list = self.ectopic_intervals + self.long_short_intervals + self.extra_intervals + self.missed_intervals
+        if self.rr_checked:
+            rr_stats.append(int(np.cumsum(self.rr_checked)[-1]))
+        else:
+            rr_stats.append(0)
+        if artefacts_list:
+            rr_stats.append(int(np.cumsum(artefacts_list)[-1]))
+        else:
+            rr_stats.append(0)
+        if self.ectopic_intervals:
+            rr_stats.append(int(np.cumsum(self.ectopic_intervals)[-1]))
+        else:
+            rr_stats.append(0)
+        if self.long_short_intervals:
+            rr_stats.append(int(np.cumsum(self.long_short_intervals)[-1]))
+        else:
+            rr_stats.append(0)
+        if self.extra_intervals:
+            rr_stats.append(int(np.cumsum(self.extra_intervals)[-1]))
+        else:
+            rr_stats.append(0)
+        if self.missed_intervals:
+            rr_stats.append(int(np.cumsum(self.missed_intervals)[-1]))
+        else:
+            rr_stats.append(0)
+        
+        error_stats = name+window_stats+rr_stats
+
+        with open(path, 'a') as file:
+            writer = csv.writer(file)
+            writer.writerow(error_stats)
+    
+    
+
+
+        
