@@ -132,7 +132,7 @@ class EcgFreiburg(Ecg):
                 continue
             rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
             rr_intervals_window = rr_intervals_window[~np.isnan(rr_intervals_window)]
-            if self.rr_plausibility_check(rr_intervals_window, window=300, normal_level=0.1, artefact_level=0.05):
+            if self.rr_plausibility_check(rr_intervals_window, window=300, normal_level=0.1, artefact_level=0.01):
                 time_features = self.hrv_features_time(rr_intervals_window)
                 frequency_features = self.hrv_features_frequency(rr_intervals_window)
                 nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
