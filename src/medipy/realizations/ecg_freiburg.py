@@ -168,6 +168,103 @@ class EcgFreiburg(Ecg):
         if export is not None:
             self.feature_df.to_pickle(export)
 
+    def short_term_hrv_marked_extractor(self, window=300, overlap=0.999, area_min=24, include_meta=None, export=None):
+        '''
+        Short Term HRV Marked Extraktor
+        Iteration mittels geleitendem (Overlap=1) Fenster / oder springendem (Overlap<1) Fenster über Grid (entspricht Index des Dataframes),
+        wenn ein Anfall in einer Area+- markiert ist
+        Für jedes Fenster werden die darin befindenden RR Intervalle auf Plausibilität und Fehlende Werte geprüft
+        - Wenn nicht plausibel, wird nichts berechnet: np.nan
+        - Wenn plausibel,
+                - werden für den zentralen Gridwert (Window/2) verschiedene HRV Feature berechnet
+                - zuvor wird je nach Feature und fehlender Datenmenge auf verschiedene Weise interpoliert
+                - im Dataframe gespeichert
+        - Anschließend wird der Dataframe mit den Signal, Tags und Meta Daten zusammengeführt, wenn Meta Daten zur Verfügung stehen
+        - Der DataFrame wird unter "export" exportiert
+        '''
+        # Feature Names
+        time_feature_names = ['RR_MEDIAN', 'RR_MEAN', 'SDNN', 'SDSD', 'RMSSD', 'NN50', 'pNN50', 'HR_MEAN', 'HR_MAX_MIN']
+        frequency_feature_names = ['LF_POWER', 'HF_POWER', 'LF_HF_RATIO', 'LF_NU', 'HF_NU', 'LF_PEAK', 'HF_PEAK']
+        nonlinear_feature_names = ['SD1', 'SD2', 'CSI', 'MODIFIED_CSI', 'CVI', 'DF_ALPHA_1', 'DF_ALPHA_2']
+
+        # Samples in Dataframe
+        samples_df = pd.DataFrame({'SAMPLES': self.samples}, index=self.grid)
+
+        # R-Peaks, RR_Intervals and RR_Missings to Dataframe
+        rr_intervals = self.rr_intervals.copy()
+        rr_intervals = np.insert(rr_intervals, 0, int(np.mean(self.rr_intervals[0:10])))
+        r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals}, index=np.array(self.r_peaks))
+
+        # Combine in Signal Dataframe
+        signal_df = pd.concat([samples_df, r_peaks_df], ignore_index=False, axis=1).fillna(value=np.nan)
+        #signal_df = signal_df.drop(columns=['SAMPLES', 'RR_INTERVALS'])
+        print(signal_df.shape)
+
+        # Get from Signal Dataframe including time information
+        rr_intervals_frame = signal_df['RR_INTERVALS'].to_numpy()
+
+        # Seizures in Dataframe
+        seizures_values = []
+        seizures_index = []
+        for seizure in self.seizures:
+            seizures_values.append(seizure[1])
+            seizures_index.append(seizure[0])
+        seizures_df = pd.DataFrame({'SEIZURES': seizures_values}, index=seizures_index)
+        index_check = seizures_df.index.to_numpy()
+        
+        # Create Feature Dataframe
+        self.feature_df = pd.DataFrame(np.nan, index=self.grid, columns=time_feature_names + frequency_feature_names + nonlinear_feature_names)
+        print(self.feature_df.shape)
+    
+        # HRV Calculation # BEDINGUNG SEIZRUE IN WINDOW AREA
+        half_window = int((window / 2) * self.sample_rate)
+        step_size = int(round((1 - overlap) * half_window * 2))
+        area = int(area_min/2)*60*self.sample_rate
+        if step_size == 0:
+            step_size = 1
+        steps = np.arange(0, len(self.grid), step=step_size)
+        for step in steps:
+            if step < half_window or step+half_window > steps[-1]:
+                continue
+            area_checks = abs(index_check-step*self.period_ms)
+            if not any(area_check < area for area_check in area_checks):
+                continue
+            rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
+            rr_intervals_window = rr_intervals_window[~np.isnan(rr_intervals_window)]
+            if self.rr_plausibility_check(rr_intervals_window, window=300, normal_level=0.1, artefact_level=0.01):
+                time_features = self.hrv_features_time(rr_intervals_window)
+                frequency_features = self.hrv_features_frequency(rr_intervals_window)
+                nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
+                features = {**time_features, **frequency_features, **nonlinear_features}
+                for feature in features:
+                    self.feature_df.at[self.grid[step], feature] = features[feature]
+            
+            # andere Option: Kein Durchlauf des Gesamtsignals, nur um Seizure herum, Tabelle(n) werden für Seizures gespeichert, Analyse muss angepasst werden
+            # weiter: Signal_df nicht abspeichern oder signal_df abspeichern aber Signal und R Peaks droppen? oder doch dazu speichern
+
+        # Append Meta Infos
+        if include_meta is not None:
+
+            # Metas of Seizures in Dataframe
+            meta_df = pd.read_csv(include_meta, delimiter=';')
+            meta_df = meta_df[meta_df['UKLEEG_NUMBER'].isin([self.patient_id])]
+            meta_df = meta_df[meta_df['TAG'].isin(seizures_values)].reset_index(drop=True)
+            meta_df = meta_df.set_index(seizures_df.index)
+            self.meta = meta_df.values.tolist()
+
+            # Alle Spalten Droppen die für weitere Verarbeitung irrelavant sind
+            meta_df = meta_df.drop(columns=['MYOCLONIC', 'EPILEPTIC', 'TYP I', 'TYP II', 'TYP III', 'SEITE', 'TAG', 'STUDY_ID', 'ORIGIN_START', 'EKG_QUAL', 'EEG', 'EMG', 'DELRE', 'DELLI', 'QUADRE', 'QUADLI', 'VIDEO', 'VIGILANZ', 'PERCEPTION', 'IMPULSE'])
+
+            # Merge
+            self.feature_df = pd.concat([signal_df, seizures_df, meta_df, self.feature_df], ignore_index=False, axis=1) #
+        else:
+            # Merge without Meta
+            self.feature_df = pd.concat([signal_df, seizures_df, self.feature_df], ignore_index=False, axis=1) #
+
+        # Export File as Pickle
+        if export is not None:
+            self.feature_df.to_pickle(export)
+
     def plot_ecg_raw(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
         plots a raw ecg signal
