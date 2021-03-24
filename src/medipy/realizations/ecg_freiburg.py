@@ -13,7 +13,6 @@ from astropy.timeseries import LombScargle
 import nolds
 import csv  
 from medipy.interfaces.ecg import Ecg
-import time
 
 class EcgFreiburg(Ecg):
     '''
@@ -169,7 +168,7 @@ class EcgFreiburg(Ecg):
         if export is not None:
             self.feature_df.to_pickle(export)
 
-    def short_term_hrv_marked_extractor(self, window=300, overlap=0.999, area_min=10, include_meta=None, export=None):
+    def short_term_hrv_marked_extractor(self, window=300, overlap=0.999, area_min=16, include_meta=None, export=None):
         '''
         Short Term HRV Marked Extraktor
         Iteration mittels geleitendem (Overlap=1) Fenster / oder springendem (Overlap<1) Fenster über Grid (entspricht Index des Dataframes),
@@ -198,7 +197,6 @@ class EcgFreiburg(Ecg):
 
         # Combine in Signal Dataframe
         signal_df = pd.concat([samples_df, r_peaks_df], ignore_index=False, axis=1).fillna(value=np.nan)
-        #signal_df = signal_df.drop(columns=['SAMPLES', 'R_PEAKS']) # Drop unnecessary data might help
         
         # Seizures in Dataframe
         seizures_values = []
@@ -207,11 +205,27 @@ class EcgFreiburg(Ecg):
             seizures_values.append(seizure[1])
             seizures_index.append(seizure[0])
         seizures_df = pd.DataFrame({'SEIZURES': seizures_values}, index=seizures_index)
+        
+        # Metas of Seizures in Dataframe
+        meta_df = pd.read_csv(include_meta, delimiter=';')
+        meta_df = meta_df[meta_df['UKLEEG_NUMBER'].isin([self.patient_id])]
+        meta_df = meta_df[meta_df['TAG'].isin(seizures_values)].reset_index(drop=True)
+        meta_df = meta_df.set_index(seizures_df.index)
+        self.meta = meta_df.values.tolist()
+
+        # Alle Spalten Droppen die für weitere Verarbeitung irrelavant sind
+        meta_df = meta_df.drop(columns=['MYOCLONIC', 'EPILEPTIC', 'TYP I', 'TYP II', 'TYP III', 'SEITE', 'TAG', 'STUDY_ID', 'ORIGIN_START', 'EKG_QUAL', 'EEG', 'EMG', 'DELRE', 'DELLI', 'QUADRE', 'QUADLI', 'VIDEO', 'VIGILANZ', 'PERCEPTION', 'IMPULSE'])
+
+        # Add Meta to Seizures Df
+        seizures_df = pd.concat([seizures_df, meta_df], ignore_index=False, axis=1)
+
+        # Drop all non myoclonic seizures
+        seizures_df = seizures_df.loc[seizures_df['TYP'] != 'OTHER',:]
 
         # Create a grid for calculation
         area = int(area_min/2)*60*1000 
         seizures_points = seizures_df.index.to_numpy()
-        #seizures_points = seizures_points - 75000 # Marked Area Asymmetric -15 -> +5, Shift symmetric window -5s
+        seizures_points = seizures_points - 5*60*250 # Marked Area Asymmetric -13 -> +3, Shift window by half 8min -> new center to -5min
         ll_calc_range = []
         ul_calc_range = []
         for index, seizures_point in enumerate(seizures_points):
@@ -241,47 +255,25 @@ class EcgFreiburg(Ecg):
             if len_test == len(mask):
                 mask.append(False)
 
-
         # Change signal_df with mask filter to calc grid
-        print(signal_df.shape)
-        print(signal_df.index[0:5])
         signal_df = signal_df[mask]
-        print(signal_df.shape)
-        print(signal_df.index[0:5])
         
         # Get from Signal Dataframe including time information
         rr_intervals_frame = signal_df['RR_INTERVALS'].to_numpy()
-
-        # # Marked Area Asymmetric -15 -> +5, Shift symmetric window -5s
-        # index_check = seizures_df.index.to_numpy()
-        # index_check = index_check - 75000
-        # empty space at start and end droppen
-        #m direkt auch für signal_df
-        # index = self.grid ändern anpassen, damit bei merge woeder zusammenkommt
-        # wie lange dauert merge im vergleich zur vorschleife für 3600s 
         
         # Create Feature Dataframe
         self.feature_df = pd.DataFrame(np.nan, index=signal_df.index, columns=time_feature_names + frequency_feature_names + nonlinear_feature_names)#index=self.grid
-        print(self.feature_df.shape)
-        print(self.feature_df.index[0:5])
 
-        # HRV Calculation # BEDINGUNG SEIZRUE IN WINDOW AREA
+        # HRV Calculation
         half_window = int((window / 2) * self.sample_rate)
         step_size = int(round((1 - overlap) * half_window * 2))
-        # area = int(area_min/2)*60*1000 #self.sample_rate !PROOOF!
         if step_size == 0:
             step_size = 1
         steps = np.arange(0, len(signal_df.index), step=step_size)
         steps = [step for step in steps if step > half_window]
         steps = [step for step in steps if step + half_window < steps[-1]]
         steps = np.array(steps)
-        start_time = time.time()
         for step in steps:
-            # if step < half_window or step+half_window > steps[-1]:
-            #     continue
-            # area_checks = abs(index_check-step*self.period_ms)
-            # if not any(area_check < area for area_check in area_checks):
-            #     continue
             rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
             rr_intervals_window = rr_intervals_window[~np.isnan(rr_intervals_window)]
             if self.rr_plausibility_check(rr_intervals_window, window=300, normal_level=0.1, artefact_level=0.01):
@@ -290,35 +282,14 @@ class EcgFreiburg(Ecg):
                 nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
                 features = {**time_features, **frequency_features, **nonlinear_features}
                 for feature in features:
-                    self.feature_df.at[self.grid[step], feature] = features[feature]
-        print(f'--- {round((time.time() - start_time),3)} s for Big For Loop ---')    
+                    self.feature_df.at[self.grid[step], feature] = features[feature] 
 
-        # Append Meta Infos
-        if include_meta is not None:
-
-            # Metas of Seizures in Dataframe
-            meta_df = pd.read_csv(include_meta, delimiter=';')
-            meta_df = meta_df[meta_df['UKLEEG_NUMBER'].isin([self.patient_id])]
-            meta_df = meta_df[meta_df['TAG'].isin(seizures_values)].reset_index(drop=True)
-            meta_df = meta_df.set_index(seizures_df.index)
-            self.meta = meta_df.values.tolist()
-
-            # Alle Spalten Droppen die für weitere Verarbeitung irrelavant sind
-            meta_df = meta_df.drop(columns=['MYOCLONIC', 'EPILEPTIC', 'TYP I', 'TYP II', 'TYP III', 'SEITE', 'TAG', 'STUDY_ID', 'ORIGIN_START', 'EKG_QUAL', 'EEG', 'EMG', 'DELRE', 'DELLI', 'QUADRE', 'QUADLI', 'VIDEO', 'VIGILANZ', 'PERCEPTION', 'IMPULSE'])
-
-            # Merge
-            start_time = time.time()
-            self.feature_df = pd.concat([signal_df, seizures_df, meta_df, self.feature_df], ignore_index=False, axis=1)
-            print(f'--- {round((time.time() - start_time),3)} s for Merge at end ---')
-        else:
-            # Merge without Meta
-            self.feature_df = pd.concat([signal_df, seizures_df, self.feature_df], ignore_index=False, axis=1)
+        # Merge
+        self.feature_df = pd.concat([signal_df, seizures_df, self.feature_df], ignore_index=False, axis=1)
 
         # Export File as Pickle
         if export is not None:
-            start_time = time.time()
             self.feature_df.to_pickle(export)
-            print(f'--- {round((time.time() - start_time),3)} s for Export---')
 
     def plot_ecg_raw(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
