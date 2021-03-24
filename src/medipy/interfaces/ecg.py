@@ -358,7 +358,7 @@ class Ecg(metaclass=abc.ABCMeta):
         rr_median = np.median(rr_intervals)
         rr_mean = np.mean(rr_intervals)
         sdnn = np.std(rr_intervals, ddof=1)
-        sdsd = np.sqrt(np.mean(drr_dev)**2)
+        sdsd = np.std(drr, ddof=1)
         rmssd = np.sqrt(np.mean(drr ** 2))
         nn50 = sum(np.abs(drr) > 50)
         pnn50 = (nn50 / len(rr_intervals)) * 100
@@ -429,7 +429,7 @@ class Ecg(metaclass=abc.ABCMeta):
         long = range(17, 64 + 1)
 
         # Poincare Features
-        sd1 = np.sqrt(np.std(drr, ddof=1) ** 2 * 0.5)
+        sd1 = np.sqrt((np.std(drr, ddof=1) ** 2) * 0.5)
         sd2 = np.sqrt(2 * np.std(rr_intervals, ddof=1) ** 2 - 0.5 * np.std(drr, ddof=1) ** 2)
         T = 4 * sd1
         L = 4 * sd2

@@ -13,6 +13,7 @@ from astropy.timeseries import LombScargle
 import nolds
 import csv  
 from medipy.interfaces.ecg import Ecg
+import time
 
 class EcgFreiburg(Ecg):
     '''
@@ -168,7 +169,7 @@ class EcgFreiburg(Ecg):
         if export is not None:
             self.feature_df.to_pickle(export)
 
-    def short_term_hrv_marked_extractor(self, window=300, overlap=0.999, area_min=24, include_meta=None, export=None):
+    def short_term_hrv_marked_extractor(self, window=300, overlap=0.999, area_min=10, include_meta=None, export=None):
         '''
         Short Term HRV Marked Extraktor
         Iteration mittels geleitendem (Overlap=1) Fenster / oder springendem (Overlap<1) Fenster über Grid (entspricht Index des Dataframes),
@@ -197,12 +198,8 @@ class EcgFreiburg(Ecg):
 
         # Combine in Signal Dataframe
         signal_df = pd.concat([samples_df, r_peaks_df], ignore_index=False, axis=1).fillna(value=np.nan)
-        #signal_df = signal_df.drop(columns=['SAMPLES', 'RR_INTERVALS'])
-        print(signal_df.shape)
-
-        # Get from Signal Dataframe including time information
-        rr_intervals_frame = signal_df['RR_INTERVALS'].to_numpy()
-
+        #signal_df = signal_df.drop(columns=['SAMPLES', 'R_PEAKS']) # Drop unnecessary data might help
+        
         # Seizures in Dataframe
         seizures_values = []
         seizures_index = []
@@ -210,25 +207,81 @@ class EcgFreiburg(Ecg):
             seizures_values.append(seizure[1])
             seizures_index.append(seizure[0])
         seizures_df = pd.DataFrame({'SEIZURES': seizures_values}, index=seizures_index)
-        index_check = seizures_df.index.to_numpy()
+
+        # Create a grid for calculation
+        area = int(area_min/2)*60*1000 
+        seizures_points = seizures_df.index.to_numpy()
+        #seizures_points = seizures_points - 75000 # Marked Area Asymmetric -15 -> +5, Shift symmetric window -5s
+        ll_calc_range = []
+        ul_calc_range = []
+        for index, seizures_point in enumerate(seizures_points):
+            if index == 0:
+                ll_area = seizures_point - area
+                ll_calc_range.append(ll_area)
+                ul_area = seizures_point + area
+                ul_calc_range.append(ul_area)
+            else:
+                ll_area = seizures_point - area
+                ul_area = seizures_point + area
+                if ll_area > ul_calc_range[-1]:
+                    ll_calc_range.append(ll_area)
+                    ul_calc_range.append(ul_area)
+                else:  #ll_area <= ul_calc_range[-1]
+                    ul_calc_range.pop(-1)
+                    ul_calc_range.append(ul_area)
+        
+        # Create a mask from calc range to filter signal_df
+        mask = []
+        len_test =0
+        for grid_val in self.grid:
+            len_test=len(mask)
+            for counter in range(len(ll_calc_range)):
+                if ll_calc_range[counter] <= grid_val < ul_calc_range[counter]:
+                    mask.append(True)
+            if len_test == len(mask):
+                mask.append(False)
+
+
+        # Change signal_df with mask filter to calc grid
+        print(signal_df.shape)
+        print(signal_df.index[0:5])
+        signal_df = signal_df[mask]
+        print(signal_df.shape)
+        print(signal_df.index[0:5])
+        
+        # Get from Signal Dataframe including time information
+        rr_intervals_frame = signal_df['RR_INTERVALS'].to_numpy()
+
+        # # Marked Area Asymmetric -15 -> +5, Shift symmetric window -5s
+        # index_check = seizures_df.index.to_numpy()
+        # index_check = index_check - 75000
+        # empty space at start and end droppen
+        #m direkt auch für signal_df
+        # index = self.grid ändern anpassen, damit bei merge woeder zusammenkommt
+        # wie lange dauert merge im vergleich zur vorschleife für 3600s 
         
         # Create Feature Dataframe
-        self.feature_df = pd.DataFrame(np.nan, index=self.grid, columns=time_feature_names + frequency_feature_names + nonlinear_feature_names)
+        self.feature_df = pd.DataFrame(np.nan, index=signal_df.index, columns=time_feature_names + frequency_feature_names + nonlinear_feature_names)#index=self.grid
         print(self.feature_df.shape)
-    
+        print(self.feature_df.index[0:5])
+
         # HRV Calculation # BEDINGUNG SEIZRUE IN WINDOW AREA
         half_window = int((window / 2) * self.sample_rate)
         step_size = int(round((1 - overlap) * half_window * 2))
-        area = int(area_min/2)*60*self.sample_rate
+        # area = int(area_min/2)*60*1000 #self.sample_rate !PROOOF!
         if step_size == 0:
             step_size = 1
-        steps = np.arange(0, len(self.grid), step=step_size)
+        steps = np.arange(0, len(signal_df.index), step=step_size)
+        steps = [step for step in steps if step > half_window]
+        steps = [step for step in steps if step + half_window < steps[-1]]
+        steps = np.array(steps)
+        start_time = time.time()
         for step in steps:
-            if step < half_window or step+half_window > steps[-1]:
-                continue
-            area_checks = abs(index_check-step*self.period_ms)
-            if not any(area_check < area for area_check in area_checks):
-                continue
+            # if step < half_window or step+half_window > steps[-1]:
+            #     continue
+            # area_checks = abs(index_check-step*self.period_ms)
+            # if not any(area_check < area for area_check in area_checks):
+            #     continue
             rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
             rr_intervals_window = rr_intervals_window[~np.isnan(rr_intervals_window)]
             if self.rr_plausibility_check(rr_intervals_window, window=300, normal_level=0.1, artefact_level=0.01):
@@ -238,9 +291,7 @@ class EcgFreiburg(Ecg):
                 features = {**time_features, **frequency_features, **nonlinear_features}
                 for feature in features:
                     self.feature_df.at[self.grid[step], feature] = features[feature]
-            
-            # andere Option: Kein Durchlauf des Gesamtsignals, nur um Seizure herum, Tabelle(n) werden für Seizures gespeichert, Analyse muss angepasst werden
-            # weiter: Signal_df nicht abspeichern oder signal_df abspeichern aber Signal und R Peaks droppen? oder doch dazu speichern
+        print(f'--- {round((time.time() - start_time),3)} s for Big For Loop ---')    
 
         # Append Meta Infos
         if include_meta is not None:
@@ -256,14 +307,18 @@ class EcgFreiburg(Ecg):
             meta_df = meta_df.drop(columns=['MYOCLONIC', 'EPILEPTIC', 'TYP I', 'TYP II', 'TYP III', 'SEITE', 'TAG', 'STUDY_ID', 'ORIGIN_START', 'EKG_QUAL', 'EEG', 'EMG', 'DELRE', 'DELLI', 'QUADRE', 'QUADLI', 'VIDEO', 'VIGILANZ', 'PERCEPTION', 'IMPULSE'])
 
             # Merge
-            self.feature_df = pd.concat([signal_df, seizures_df, meta_df, self.feature_df], ignore_index=False, axis=1) #
+            start_time = time.time()
+            self.feature_df = pd.concat([signal_df, seizures_df, meta_df, self.feature_df], ignore_index=False, axis=1)
+            print(f'--- {round((time.time() - start_time),3)} s for Merge at end ---')
         else:
             # Merge without Meta
-            self.feature_df = pd.concat([signal_df, seizures_df, self.feature_df], ignore_index=False, axis=1) #
+            self.feature_df = pd.concat([signal_df, seizures_df, self.feature_df], ignore_index=False, axis=1)
 
         # Export File as Pickle
         if export is not None:
+            start_time = time.time()
             self.feature_df.to_pickle(export)
+            print(f'--- {round((time.time() - start_time),3)} s for Export---')
 
     def plot_ecg_raw(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
