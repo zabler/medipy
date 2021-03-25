@@ -219,13 +219,16 @@ class EcgFreiburg(Ecg):
         # Add Meta to Seizures Df
         seizures_df = pd.concat([seizures_df, meta_df], ignore_index=False, axis=1)
 
+        # Add all seizures to signal_df also meta of OTHER so that after filtering infos about location close to myoclonic seizures is still there   
+        signal_df = pd.concat([signal_df, seizures_df], ignore_index=False, axis=1)
+
         # Drop all non myoclonic seizures
         seizures_df = seizures_df.loc[seizures_df['TYP'] != 'OTHER',:]
 
         # Create a grid for calculation
         area = int(area_min/2)*60*1000 
         seizures_points = seizures_df.index.to_numpy()
-        seizures_points = seizures_points - 5*60*250 # Marked Area Asymmetric -13 -> +3, Shift window by half 8min -> new center to -5min
+        #seizures_points = seizures_points - 5*60*1000 # Marked Area Asymmetric : Shift Center to -Xmin*60*1000 ms
         ll_calc_range = []
         ul_calc_range = []
         for index, seizures_point in enumerate(seizures_points):
@@ -247,7 +250,7 @@ class EcgFreiburg(Ecg):
         # Create a mask from calc range to filter signal_df
         mask = []
         len_test =0
-        for grid_val in self.grid:
+        for grid_val in self.grid: # Index of signal_df
             len_test=len(mask)
             for counter in range(len(ll_calc_range)):
                 if ll_calc_range[counter] <= grid_val < ul_calc_range[counter]:
@@ -263,6 +266,7 @@ class EcgFreiburg(Ecg):
         
         # Create Feature Dataframe
         self.feature_df = pd.DataFrame(np.nan, index=signal_df.index, columns=time_feature_names + frequency_feature_names + nonlinear_feature_names)#index=self.grid
+        sliced_grid = signal_df.index.to_numpy()
 
         # HRV Calculation
         half_window = int((window / 2) * self.sample_rate)
@@ -282,10 +286,10 @@ class EcgFreiburg(Ecg):
                 nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
                 features = {**time_features, **frequency_features, **nonlinear_features}
                 for feature in features:
-                    self.feature_df.at[self.grid[step], feature] = features[feature] 
+                    self.feature_df.at[sliced_grid[step], feature] = features[feature] 
 
         # Merge
-        self.feature_df = pd.concat([signal_df, seizures_df, self.feature_df], ignore_index=False, axis=1)
+        self.feature_df = pd.concat([signal_df, self.feature_df], ignore_index=False, axis=1)
 
         # Export File as Pickle
         if export is not None:
