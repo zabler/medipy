@@ -30,7 +30,6 @@ class Ecg(metaclass=abc.ABCMeta):
         self.rr_checked = []
         self.plausible = 0
         self.unplausible_no_data = 0
-        self.unplausible_not_normal = 0
         self.unplausible_artefacts = 0
         self.ectopic_intervals = []
         self.missed_intervals = []
@@ -318,31 +317,25 @@ class Ecg(metaclass=abc.ABCMeta):
 
         return ectopic_intervals + missed_intervals + extra_intervals + long_short_intervals
 
-    def rr_plausibility_check(self, rr_intervals, window=300, normal_level=0.1, artefact_level=0.01):
+    def rr_plausibility_check(self, rr_intervals, window=300, artefact_level=0.01):
         '''
         This method checks if a window has plausible values
-        (1) Überhaupt RR-Intervalle vorhanden? Y(Q2), N(Unplausibel)
-        (2) Liegt die Anzahl der detektierten RR-Intervalle im Bereich des Theoretischen (Annahme Stationär und Normalverteilt)? Y(3), N(Unplausibel)
-        (3) Ist der Anteil an fehlerhaften RR-Intervallen (Artefaktgehalt) im 5min-Fenster kleinergleich 1%? Y(Plausibel), N(Unplausibel)
+        (1) Liegt die Anzahl der RR-Intervalle im angegebenen Bereich? Y(Q2), N(Unplausibel)
+        (2) Ist der Anteil an fehlerhaften RR-Intervallen (Artefaktgehalt) im 5min-Fenster kleinergleich als der zugelassene Artefaktgehalt? Y(Plausibel), N(Unplausibel)
         '''
-
-        if len(rr_intervals) < 150: # Untere Schranke von 30 Bpm, sonst unplausible
+        lower_bound = (window / 60) * 30  # Untere Schranke von 30 Bpm
+        upper_bound = (window / 60) * 200  # Obere Schranke von 200 Bpm
+        number_rr = len(rr_intervals)
+        if number_rr < lower_bound or number_rr > upper_bound: 
             self.unplausible_no_data += 1
             return False
         else:
-            rr_median = np.median(rr_intervals)
-            intervals_theoretical = (window*1000) / rr_median
-            intervals_actual = len(rr_intervals)
-            if intervals_actual not in range(int(intervals_theoretical * (1 - normal_level)), int(intervals_theoretical * (1 + normal_level))):
-                self.unplausible_not_normal += 1
+            if self.rr_interval_kubios_artefact_detector(rr_intervals) > artefact_level * number_rr:
+                self.unplausible_artefacts += 1
                 return False
             else:
-                if self.rr_interval_kubios_artefact_detector(rr_intervals) > artefact_level * len(rr_intervals):
-                    self.unplausible_artefacts += 1
-                    return False
-                else:
-                    self.plausible += 1
-                    return True
+                self.plausible += 1
+                return True
 
     def hrv_features_time(self, rr_intervals):
         '''
@@ -364,7 +357,6 @@ class Ecg(metaclass=abc.ABCMeta):
         pnn50 = (nn50 / len(rr_intervals)) * 100
 
         # Heartrate Features
-        hr_mean = np.mean(hr)
         hr_max_min = max(hr)-min(hr)
 
         time_features = {
@@ -375,7 +367,6 @@ class Ecg(metaclass=abc.ABCMeta):
             'RMSSD': rmssd,
             'NN50': nn50,
             'pNN50': nn50,
-            'HR_MEAN': hr_mean,
             'HR_MAX_MIN': hr_max_min,
         }
         return time_features

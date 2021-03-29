@@ -86,89 +86,7 @@ class EcgFreiburg(Ecg):
             self.grid = np.arange(0, duration_s * self.sample_rate * self.period_ms, self.period_ms, dtype=int)
             self.seizures = [seizure for seizure in self.seizures if seizure[0] in range(self.grid[0], self.grid[-1])]
 
-    def short_term_hrv_extractor(self, window=300, overlap=0.5, include_meta=None, export=None):
-        '''
-        Short Term HRV Extraktor
-        Iteration mittels geleitendem (Overlap=1) Fenster / oder springendem (Overlap<1) Fenster über Grid (entspricht Index des Dataframes)
-        Für jedes Fenster werden die darin befindenden RR Intervalle auf Plausibilität und Fehlende Werte geprüft
-        - Wenn nicht plausibel, wird nichts berechnet: np.nan
-        - Wenn plausibel,
-                - werden für den zentralen Gridwert (Window/2) verschiedene HRV Feature berechnet
-                - zuvor wird je nach Feature und fehlender Datenmenge auf verschiedene Weise interpoliert
-                - im Dataframe gespeichert
-        - Anschließend wird der Dataframe mit den Signal, Tags und Meta Daten zusammengeführt, wenn Meta Daten zur Verfügung stehen
-        - Der DataFrame wird unter "export" exportiert
-        '''
-        # Feature Names
-        time_feature_names = ['RR_MEDIAN', 'RR_MEAN', 'SDNN', 'SDSD', 'RMSSD', 'NN50', 'pNN50', 'HR_MEAN', 'HR_MAX_MIN']
-        frequency_feature_names = ['LF_POWER', 'HF_POWER', 'LF_HF_RATIO', 'LF_NU', 'HF_NU', 'LF_PEAK', 'HF_PEAK']
-        nonlinear_feature_names = ['SD1', 'SD2', 'CSI', 'MODIFIED_CSI', 'CVI', 'DF_ALPHA_1', 'DF_ALPHA_2']
-
-        # Samples in Dataframe
-        samples_df = pd.DataFrame({'SAMPLES': self.samples}, index=self.grid)
-
-        # R-Peaks, RR_Intervals and RR_Missings to Dataframe
-        rr_intervals = self.rr_intervals.copy()
-        rr_intervals = np.insert(rr_intervals, 0, int(np.mean(self.rr_intervals[0:10])))
-        r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals}, index=np.array(self.r_peaks))
-
-        # Combine in Signal Dataframe
-        signal_df = pd.concat([samples_df, r_peaks_df], ignore_index=False, axis=1).fillna(value=np.nan)
-
-        # Get from Signal Dataframe including time information
-        rr_intervals_frame = signal_df['RR_INTERVALS'].to_numpy()
-
-        # Create Feature Dataframe
-        self.feature_df = pd.DataFrame(np.nan, index=self.grid, columns=time_feature_names+frequency_feature_names+nonlinear_feature_names)
-
-        # HRV Calculation
-        half_window = int((window / 2) * self.sample_rate)
-        step_size = int(math.ceil((1 - overlap) * half_window * 2))
-        if step_size == 0:
-            step_size = 1
-        steps = np.arange(0, len(self.grid) + 1, step=step_size)
-        for step in steps:
-            if step < half_window or step+half_window > steps[-1]:
-                continue
-            rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
-            rr_intervals_window = rr_intervals_window[~np.isnan(rr_intervals_window)]
-            if self.rr_plausibility_check(rr_intervals_window, window=300, normal_level=0.1, artefact_level=0.01):
-                time_features = self.hrv_features_time(rr_intervals_window)
-                frequency_features = self.hrv_features_frequency(rr_intervals_window)
-                nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
-                features = {**time_features, **frequency_features, **nonlinear_features}
-                for feature in features:
-                    self.feature_df.at[self.grid[step], feature] = features[feature]
-
-        # Append Meta Infos
-        if include_meta is not None:
-
-            # Seizures in Dataframe
-            seizures_values = []
-            seizures_index = []
-            for seizure in self.seizures:
-                seizures_values.append(seizure[1])
-                seizures_index.append(seizure[0])
-            seizures_df = pd.DataFrame({'SEIZURES': seizures_values}, index=seizures_index)
-
-            # Metas of Seizures in Dataframe
-            meta_df = pd.read_csv(include_meta, delimiter=';')
-            meta_df = meta_df[meta_df['UKLEEG_NUMBER'].isin([self.patient_id])]
-            meta_df = meta_df[meta_df['TAG'].isin(seizures_values)].reset_index(drop=True)
-            meta_df = meta_df.set_index(seizures_df.index)
-            self.meta = meta_df.values.tolist()
-
-            # Alle Spalten Droppen die für weitere Verarbeitung irrelavant sind
-            meta_df = meta_df.drop(columns=['MYOCLONIC', 'EPILEPTIC', 'TYP I', 'TYP II', 'TYP III', 'SEITE', 'TAG', 'STUDY_ID', 'ORIGIN_START', 'EKG_QUAL', 'EEG', 'EMG', 'DELRE', 'DELLI', 'QUADRE', 'QUADLI', 'VIDEO', 'VIGILANZ', 'PERCEPTION', 'IMPULSE'])
-
-            # Merge all Dataframes
-            self.feature_df = pd.concat([signal_df, seizures_df, meta_df, self.feature_df], ignore_index=False, axis=1)
-
-        # Export File as Pickle
-        if export is not None:
-            self.feature_df.to_pickle(export)
-
-    def short_term_hrv_marked_extractor(self, window=300, overlap=0.999, area_min=16, include_meta=None, export=None):
+    def short_term_hrv_marked_extractor(self, window=300, overlap=0.999, area_min=30, include_meta=None, export=None):
         '''
         Short Term HRV Marked Extraktor
         Iteration mittels geleitendem (Overlap=1) Fenster / oder springendem (Overlap<1) Fenster über Grid (entspricht Index des Dataframes),
@@ -183,7 +101,7 @@ class EcgFreiburg(Ecg):
         - Der DataFrame wird unter "export" exportiert
         '''
         # Feature Names
-        time_feature_names = ['RR_MEDIAN', 'RR_MEAN', 'SDNN', 'SDSD', 'RMSSD', 'NN50', 'pNN50', 'HR_MEAN', 'HR_MAX_MIN']
+        time_feature_names = ['RR_MEDIAN', 'RR_MEAN', 'SDNN', 'SDSD', 'RMSSD', 'NN50', 'pNN50', 'HR_MAX_MIN']
         frequency_feature_names = ['LF_POWER', 'HF_POWER', 'LF_HF_RATIO', 'LF_NU', 'HF_NU', 'LF_PEAK', 'HF_PEAK']
         nonlinear_feature_names = ['SD1', 'SD2', 'CSI', 'MODIFIED_CSI', 'CVI', 'DF_ALPHA_1', 'DF_ALPHA_2']
 
@@ -280,7 +198,7 @@ class EcgFreiburg(Ecg):
         for step in steps:
             rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
             rr_intervals_window = rr_intervals_window[~np.isnan(rr_intervals_window)]
-            if self.rr_plausibility_check(rr_intervals_window, window=300, normal_level=0.1, artefact_level=0.01):
+            if self.rr_plausibility_check(rr_intervals_window, window=300, artefact_level=0.01):
                 time_features = self.hrv_features_time(rr_intervals_window)
                 frequency_features = self.hrv_features_frequency(rr_intervals_window)
                 nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
@@ -750,32 +668,27 @@ class EcgFreiburg(Ecg):
         local_rr_intervals = []
         for k in range(1, len(local_r_peaks)):
             local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
-        local_rr_median = np.median(local_rr_intervals)
-        local_rr_mean = np.mean(local_rr_intervals)
-        real_number = len(local_rr_intervals)
-        theo_number = int((300 * 1000) / local_rr_median)
-        theo2_number = int((300 * 1000) / local_rr_mean)
+        real_number_rr = len(local_rr_intervals)
+        local_rr_intervals_array = np.array(local_rr_intervals)
+        hr = np.divide(60000, local_rr_intervals)
+        hr_mean = int(np.mean(hr))
 
         # Plot Data
         bin_sequence = np.arange(800, 1400 + 1, 10)
         ax1.hist(local_rr_intervals, bins=bin_sequence, label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
-        #props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-        textstr = '\n'.join((f'Theoretische Anzahl RR-Intervalle im Median: {theo_number}', f'Theoretische Anzahl RR-Intervalle im Mittel: {theo2_number}', f'Tatsächliche Anzahl RR-Intervalle: {real_number}'))
+        textstr = '\n'.join((f'Mittlere Herzrate: {hr_mean}bpm', f'Anzahl RR-Intervalle: {real_number_rr}'))
         ax1.text(0.05, 0.95, textstr, transform=ax1.transAxes, fontsize=8, verticalalignment='top')#, bbox=props)
         ax1.set_xlim(800, 1400)
         ax2.set_xlim(800, 1400)
         ax2.set_xticks([])
-        ax2.axvline(x=local_rr_median, label='Median', color=self.colours['wine'], linewidth=4)
-        ax2.axvline(x=local_rr_mean, label='Mittelwert', color=self.colours['blue'], linewidth=4)
-
 
         # Plot Settings
         ax1.set_xlabel('Intervalllänge [ms]')
         ax1.set_ylabel('Absolute Häufigkeit')
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
+        ax1.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5224_Histogramm_eines_5-Minuten-Abschnitts_und_Intervallschätzung.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Histogramm_eines_5-Minuten-Abschnitts.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_tachogram(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
@@ -947,11 +860,10 @@ class EcgFreiburg(Ecg):
         name = [name]
 
         window_stats = []
-        window_stats.append(self.plausible+self.unplausible_no_data+self.unplausible_not_normal+self.unplausible_artefacts)
+        window_stats.append(self.plausible+self.unplausible_no_data+self.unplausible_artefacts)
         window_stats.append(self.plausible)
-        window_stats.append(self.unplausible_no_data+self.unplausible_not_normal+self.unplausible_artefacts)
+        window_stats.append(self.unplausible_no_data+self.unplausible_artefacts)
         window_stats.append(self.unplausible_no_data)
-        window_stats.append(self.unplausible_not_normal)
         window_stats.append(self.unplausible_artefacts)
         
         rr_stats = []
