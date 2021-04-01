@@ -27,6 +27,7 @@ class Ecg(metaclass=abc.ABCMeta):
         self.grid = None
         self.r_peaks = []
         self.rr_intervals = []
+        self.rr_artefacts = []
         self.rr_checked = []
         self.plausible = 0
         self.unplausible_no_data = 0
@@ -189,33 +190,54 @@ class Ecg(metaclass=abc.ABCMeta):
         for k in range(1, len(self.r_peaks)):
             self.rr_intervals.append(math.ceil(self.r_peaks[k] - self.r_peaks[k - 1]))
 
-    def rr_interval_kubios_artefact_detector(self, rr_intervals):
+    def rr_interval_artefact_detector_kubios(self):
         '''
         This method detects artefacts of a given rr interval list with an modified version of Lipponen and Tarvainen (Kubios) algorithm
         '''
-        self.rr_checked.append(len(rr_intervals))
+        # Preparation
+
+        rr_intervals = np.array(self.rr_intervals)
+        self.rr_artefacts = np.zeros(len(rr_intervals))
         alpha = 5.2
         drr_intervals = np.diff(rr_intervals)
-        drr_intervals = np.insert(drr_intervals, 0, 0)
-        threshold_1 = ((np.quantile(abs(drr_intervals), 0.75) - np.quantile(abs(drr_intervals), 0.25)) / 2) * alpha
-        drr_intervals_n = drr_intervals / threshold_1
+        drr_intervals = np.insert(drr_intervals, 0, 0) 
+
         medrr_intervals = []
         mrr_intervals = []
         for index, rr_interval in enumerate(rr_intervals):
             if index < 5 or index > (len(rr_intervals) - 5):
-                medrr_intervals.append(np.median(rr_intervals))
-                mrr_intervals.append(rr_interval - np.median(rr_intervals))
+                local_medrr = np.median(rr_intervals[0:10])
+                medrr_intervals.append(local_medrr)
+                mrr_intervals.append(rr_interval - local_medrr)            
             else:
-                medrr_intervals.append(np.median(rr_intervals[index - 5:index + 6]))
-                mrr_intervals.append(rr_interval - np.median(rr_intervals[index - 5:index + 6]))
-        mrr_intervals = np.array(mrr_intervals)
-        threshold_2 = ((np.quantile(abs(mrr_intervals), 0.75) - np.quantile(abs(mrr_intervals), 0.25)) / 2) * alpha
-        mrr_intervals_n = mrr_intervals / threshold_2
+                local_medrr = np.median(rr_intervals[index - 5:index + 6])
+                medrr_intervals.append(local_medrr)
+                mrr_intervals.append(rr_interval - local_medrr)
 
-        ectopic_intervals = 0
-        missed_intervals = 0
-        extra_intervals = 0
-        long_short_intervals = 0
+        medrr_intervals = np.array(medrr_intervals)
+        mrr_intervals = np.array(mrr_intervals)
+    
+        threshold_1 = []
+        threshold_2 = []
+        for index, rr_interval in enumerate(rr_intervals):
+            if index < 45 or index > (len(rr_intervals) - 45):
+                local_drr_intervals = drr_intervals[0:91]  
+                threshold_1.append(((np.quantile(abs(local_drr_intervals), 0.75) - np.quantile(abs(local_drr_intervals), 0.25)) / 2) * alpha)
+                local_mrr_intervals = np.array(mrr_intervals[0:91])              
+                threshold_2.append(((np.quantile(abs(local_mrr_intervals), 0.75) - np.quantile(abs(local_mrr_intervals), 0.25)) / 2) * alpha)
+            else:
+                local_drr_intervals = drr_intervals[index - 45:index + 46]  
+                threshold_1.append(((np.quantile(abs(local_drr_intervals), 0.75) - np.quantile(abs(local_drr_intervals), 0.25)) / 2) * alpha)
+                local_mrr_intervals = np.array(mrr_intervals[index - 45:index + 46])              
+                threshold_2.append(((np.quantile(abs(local_mrr_intervals), 0.75) - np.quantile(abs(local_mrr_intervals), 0.25)) / 2) * alpha)
+        
+        threshold_1 = np.array(threshold_1)
+        threshold_2 = np.array(threshold_2)
+
+        # Normalization
+        drr_intervals_n = np.divide(drr_intervals, threshold_1)
+        mrr_intervals_n = np.divide(mrr_intervals, threshold_2)
+
         const_1 = 0.13
         const_2 = 0.17
         index = 1
@@ -224,6 +246,7 @@ class Ecg(metaclass=abc.ABCMeta):
         # test_ex = []
         # test_ls = []
 
+        # Detektionsdurchlauf
         while index < len(drr_intervals_n)-2:
             if abs(drr_intervals_n[index]) > 1:
                 s11 = drr_intervals_n[index]
@@ -234,8 +257,9 @@ class Ecg(metaclass=abc.ABCMeta):
                 eq1 = ((s11 > 1) and (s12 < -const_1 * s11 - const_2))
                 eq2 = ((s11 < -1) and (s12 > -const_1 * s11 + const_2))
                 if eq1 or eq2: #Ectopic
-                    ectopic_intervals += 2
                     self.ectopic_intervals.append(2)
+                    self.rr_artefacts[index] = 1
+                    self.rr_artefacts[index+1] = 1
                     #test_ec.append(index)
                     index += 2
                     continue
@@ -250,30 +274,31 @@ class Ecg(metaclass=abc.ABCMeta):
                     eq4b = ((mrr_intervals_n[index]) > 1)
                     eq5 = (s21 > 1 and s22 < -1)
                     if eq3 and eq4a:
-                        eq6 = abs(rr_intervals[index]+rr_intervals[index+1]-medrr_intervals[index]) < threshold_2
+                        eq6 = abs(rr_intervals[index]+rr_intervals[index+1]-medrr_intervals[index]) < threshold_2[index]
                         if eq6: # Extra
-                            extra_intervals += 2
                             self.extra_intervals.append(2)
+                            self.rr_artefacts[index] = 1
+                            self.rr_artefacts[index+1] = 1
                             #test_ex.append(index)
                             index += 2
                             continue
                         else: # Short
-                            long_short_intervals += 1
                             self.long_short_intervals.append(1)
+                            self.rr_artefacts[index] = 1
                             #test_ls.append(index)
                             index += 1
                     elif eq5 and eq4b:
                         eq7 = rr_intervals[index] / medrr_intervals[index] > 2
                         if eq7: # Missed
                             weight = math.floor(np.divide(rr_intervals[index], np.median(rr_intervals)))
-                            missed_intervals += int(weight)
                             self.missed_intervals.append(int(weight))
+                            self.rr_artefacts[index] = int(weight)
                             #test_mi.append(index)
                             index += 1
                             continue
                         else: # Long
-                            long_short_intervals += 1
                             self.long_short_intervals.append(1)
+                            self.rr_artefacts[index] = 1
                             #test_ls.append(index)
                             index += 1
                             continue
@@ -283,7 +308,6 @@ class Ecg(metaclass=abc.ABCMeta):
                     index += 1
             else:
                 index += 1
-        
         # colours = {'blue': (0, 0.4470, 0.7410), 'red': (0.8500, 0.3250, 0.0980), 'yellow': (0.9290, 0.6940, 0.1250), 'purple': (0.4940, 0.1840, 0.5560), 'grey': (0.5140, 0.5140, 0.5140), 'wine': (0.6350, 0.0780, 0.1840)}
         # fig, (ax1,ax2,ax3)= plt.subplots(3, sharex=True, gridspec_kw={'hspace': 0.2})
 
@@ -314,28 +338,6 @@ class Ecg(metaclass=abc.ABCMeta):
         # plt.show(block=False)
         # plt.pause(0.1)
         # plt.close()
-
-        return ectopic_intervals + missed_intervals + extra_intervals + long_short_intervals
-
-    def rr_plausibility_check(self, rr_intervals, window=300, artefact_level=0.01):
-        '''
-        This method checks if a window has plausible values
-        (1) Liegt die Anzahl der RR-Intervalle im angegebenen Bereich? Y(Q2), N(Unplausibel)
-        (2) Ist der Anteil an fehlerhaften RR-Intervallen (Artefaktgehalt) im 5min-Fenster kleinergleich als der zugelassene Artefaktgehalt? Y(Plausibel), N(Unplausibel)
-        '''
-        lower_bound = (window / 60) * 30  # Untere Schranke von 30 Bpm
-        upper_bound = (window / 60) * 200  # Obere Schranke von 200 Bpm
-        number_rr = len(rr_intervals)
-        if number_rr < lower_bound or number_rr > upper_bound: 
-            self.unplausible_no_data += 1
-            return False
-        else:
-            if self.rr_interval_kubios_artefact_detector(rr_intervals) > artefact_level * number_rr:
-                self.unplausible_artefacts += 1
-                return False
-            else:
-                self.plausible += 1
-                return True
 
     def hrv_features_time(self, rr_intervals):
         '''

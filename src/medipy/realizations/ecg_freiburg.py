@@ -111,7 +111,7 @@ class EcgFreiburg(Ecg):
         # R-Peaks, RR_Intervals and RR_Missings to Dataframe
         rr_intervals = self.rr_intervals.copy()
         rr_intervals = np.insert(rr_intervals, 0, int(np.mean(self.rr_intervals[0:10])))
-        r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals}, index=np.array(self.r_peaks))
+        r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals}, index=np.array(self.r_peaks)) #HIER ARTEFACTS DAZU
 
         # Combine in Signal Dataframe
         signal_df = pd.concat([samples_df, r_peaks_df], ignore_index=False, axis=1).fillna(value=np.nan)
@@ -722,6 +722,41 @@ class EcgFreiburg(Ecg):
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '2211_Kontinuierliche_Darstellung_einer_NN-Intervall-Folge.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
+
+    def plot_rr_interval_artefacts(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+        '''
+        plots the tachogram only as a line of rr intervals with detected artefacts
+        '''
+        # Figur Erstellen
+        fig = plt.figure(figsize=(12, 4))
+
+        # # Plot Bereich
+        # lower_limit = start_sec_abs*1000
+        # upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+
+        # # Grab Data
+        # local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
+        # local_rr_intervals = []
+        # for k in range(1, len(local_r_peaks)):
+        #     local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
+        # local_rr_artefacts = 
+
+        # Plot Data
+        plt.plot(self.rr_intervals, color='black', linewidth=1.5, label='NN-Intervall-Folge')
+        plt.plot(self.rr_artefacts*np.median(self.rr_intervals), 'x')
+
+        # Plot Settings
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
+        plt.xlabel('Intervall [k]')
+        plt.ylabel('Intervalllänge [ms]')
+        #plt.ylim(800, 1400)
+        #plt.xlim(0, len(local_rr_intervals)-1)
+        #new_time = [1, 50, 100, 150, 200, 250]
+        #plt.gca().set_xticklabels(new_time)
+        # plt.axis('off')
+        plt.draw()
+        if save_graphic is not None:
+            plt.savefig(save_graphic + 'TEST.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
 
     def plot_rr_interval_pointcare(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
         '''
