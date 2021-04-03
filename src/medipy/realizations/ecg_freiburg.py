@@ -27,6 +27,8 @@ class EcgFreiburg(Ecg):
         self.feature_df = None
         self.patient_id = None
         self.colours = {'blue': (0, 0.4470, 0.7410), 'red': (0.8500, 0.3250, 0.0980), 'yellow': (0.9290, 0.6940, 0.1250), 'purple': (0.4940, 0.1840, 0.5560), 'grey': (0.5140, 0.5140, 0.5140), 'wine': (0.6350, 0.0780, 0.1840)}
+        self.plausible_window = 0
+        self.unplausible_window = 0
 
     def data_reader(self, path):
         '''
@@ -86,22 +88,31 @@ class EcgFreiburg(Ecg):
             self.grid = np.arange(0, duration_s * self.sample_rate * self.period_ms, self.period_ms, dtype=int)
             self.seizures = [seizure for seizure in self.seizures if seizure[0] in range(self.grid[0], self.grid[-1])]
 
+    def window_plausibility_check(self, rr_intervals_window, rr_artefacts_window, artefact_level=0.01):
+        rr_intervals = rr_intervals_window[~np.isnan(rr_intervals_window)]
+        if np.nansum(rr_artefacts_window) > artefact_level * len(rr_intervals):
+            self.unplausible_window += 1
+            return False
+        else:
+            self.plausible_window += 1
+            return True
+
     def short_term_hrv_marked_extractor(self, window=300, overlap=0.999, area_min=30, include_meta=None, export=None):
         '''
         Short Term HRV Marked Extraktor
         Iteration mittels geleitendem (Overlap=1) Fenster / oder springendem (Overlap<1) Fenster über Grid (entspricht Index des Dataframes),
         wenn ein Anfall in einer Area+- markiert ist
-        Für jedes Fenster werden die darin befindenden RR Intervalle auf Plausibilität und Fehlende Werte geprüft
+        Für jedes Fenster werden die darin befindenden RR Intervalle auf Plausibilität
         - Wenn nicht plausibel, wird nichts berechnet: np.nan
         - Wenn plausibel,
-                - werden für den zentralen Gridwert (Window/2) verschiedene HRV Feature berechnet
+                - werden für den zentralen Gridwert (Window/2) verschiedene HRV Feature mit individueller Fenstergröße berechnet
                 - zuvor wird je nach Feature und fehlender Datenmenge auf verschiedene Weise interpoliert
                 - im Dataframe gespeichert
         - Anschließend wird der Dataframe mit den Signal, Tags und Meta Daten zusammengeführt, wenn Meta Daten zur Verfügung stehen
         - Der DataFrame wird unter "export" exportiert
         '''
         # Feature Names
-        time_feature_names = ['RR_MEDIAN', 'RR_MEAN', 'SDNN', 'SDSD', 'RMSSD', 'NN50', 'pNN50', 'HR_MAX_MIN']
+        time_feature_names = ['SDNN', 'SDSD', 'RMSSD', 'NN50', 'pNN50', 'HR_MAX_MIN']
         frequency_feature_names = ['LF_POWER', 'HF_POWER', 'LF_HF_RATIO', 'LF_NU', 'HF_NU', 'LF_PEAK', 'HF_PEAK']
         nonlinear_feature_names = ['SD1', 'SD2', 'CSI', 'MODIFIED_CSI', 'CVI', 'DF_ALPHA_1', 'DF_ALPHA_2']
 
@@ -111,7 +122,9 @@ class EcgFreiburg(Ecg):
         # R-Peaks, RR_Intervals and RR_Missings to Dataframe
         rr_intervals = self.rr_intervals.copy()
         rr_intervals = np.insert(rr_intervals, 0, int(np.mean(self.rr_intervals[0:10])))
-        r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals}, index=np.array(self.r_peaks)) #HIER ARTEFACTS DAZU
+        rr_artefacts = self.rr_artefacts.copy()
+        rr_artefacts = np.insert(rr_artefacts, 0, 0)
+        r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals, 'RR_ARTEFACTS':rr_artefacts}, index=np.array(self.r_peaks))
 
         # Combine in Signal Dataframe
         signal_df = pd.concat([samples_df, r_peaks_df], ignore_index=False, axis=1).fillna(value=np.nan)
@@ -144,7 +157,7 @@ class EcgFreiburg(Ecg):
         seizures_df = seizures_df.loc[seizures_df['TYP'] != 'OTHER',:]
 
         # Create a grid for calculation
-        area = int(area_min/2)*60*1000 
+        area = int(area_min / 2) * 60 * 1000
         seizures_points = seizures_df.index.to_numpy()
         #seizures_points = seizures_points - 5*60*1000 # Marked Area Asymmetric : Shift Center to -Xmin*60*1000 ms
         ll_calc_range = []
@@ -179,11 +192,12 @@ class EcgFreiburg(Ecg):
         # Change signal_df with mask filter to calc grid
         signal_df = signal_df[mask]
         
-        # Get from Signal Dataframe including time information
+        # Get from Signal Dataframe including time information 'NUR EIN FRAME??
         rr_intervals_frame = signal_df['RR_INTERVALS'].to_numpy()
+        rr_artefacts_frame = signal_df['RR_ARTEFACTS'].to_numpy()
         
         # Create Feature Dataframe
-        self.feature_df = pd.DataFrame(np.nan, index=signal_df.index, columns=time_feature_names + frequency_feature_names + nonlinear_feature_names)#index=self.grid
+        self.feature_df = pd.DataFrame(np.nan, index=signal_df.index, columns=time_feature_names + frequency_feature_names + nonlinear_feature_names)
         sliced_grid = signal_df.index.to_numpy()
 
         # HRV Calculation
@@ -196,15 +210,16 @@ class EcgFreiburg(Ecg):
         steps = [step for step in steps if step + half_window < steps[-1]]
         steps = np.array(steps)
         for step in steps:
-            rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
-            rr_intervals_window = rr_intervals_window[~np.isnan(rr_intervals_window)]
-            if self.rr_plausibility_check(rr_intervals_window, window=300, artefact_level=0.01):
-                time_features = self.hrv_features_time(rr_intervals_window)
-                frequency_features = self.hrv_features_frequency(rr_intervals_window)
-                nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
-                features = {**time_features, **frequency_features, **nonlinear_features}
-                for feature in features:
-                    self.feature_df.at[sliced_grid[step], feature] = features[feature] 
+            rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window+1]
+            rr_artefacts_window = rr_artefacts_frame[step - half_window:step + half_window+1]
+            if not self.window_plausibility_check(rr_intervals_window, rr_artefacts_window, artefact_level=0.01):
+                continue
+            time_features = self.hrv_features_time(rr_intervals_window)
+            frequency_features = self.hrv_features_frequency(rr_intervals_window)
+            nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
+            features = {**time_features, **frequency_features, **nonlinear_features}
+            for feature in features:
+                self.feature_df.at[sliced_grid[step], feature] = features[feature] 
 
         # Merge
         self.feature_df = pd.concat([signal_df, self.feature_df], ignore_index=False, axis=1)
@@ -213,7 +228,54 @@ class EcgFreiburg(Ecg):
         if export is not None:
             self.feature_df.to_pickle(export)
 
-    def plot_ecg_raw(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
+    def export_error_stats(self, path, name):
+        name = [name]
+
+        window_stats = []
+        window_stats.append(self.plausible_window+self.unplausible_window)
+        window_stats.append(self.plausible_window)
+        window_stats.append(self.unplausible_window)
+        
+        rr_stats = []
+        rr_stats.append(len(self.rr_intervals))
+
+        # Ohne Gewichtung
+        artefacts = [1 for artefact in self.rr_artefacts if artefact != 0]
+        if artefacts:
+            rr_stats.append(np.cumsum(artefacts)[-1])
+        else:
+            rr_stats.append(0)
+
+        # Mit Klassifikation und Gewichtung
+        artefacts_list = self.ectopic_intervals + self.long_short_intervals + self.extra_intervals + self.missed_intervals
+        if artefacts_list:
+            rr_stats.append(int(np.cumsum(artefacts_list)[-1]))
+        else:
+            rr_stats.append(0)
+        if self.ectopic_intervals:
+            rr_stats.append(int(np.cumsum(self.ectopic_intervals)[-1]))
+        else:
+            rr_stats.append(0)
+        if self.long_short_intervals:
+            rr_stats.append(int(np.cumsum(self.long_short_intervals)[-1]))
+        else:
+            rr_stats.append(0)
+        if self.extra_intervals:
+            rr_stats.append(int(np.cumsum(self.extra_intervals)[-1]))
+        else:
+            rr_stats.append(0)
+        if self.missed_intervals:
+            rr_stats.append(int(np.cumsum(self.missed_intervals)[-1]))
+        else:
+            rr_stats.append(0)
+        
+        error_stats = name+window_stats+rr_stats
+
+        with open(path, 'a') as file:
+            writer = csv.writer(file)
+            writer.writerow(error_stats)
+
+    def plot_ecg_raw(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
         plots a raw ecg signal
         '''
@@ -223,26 +285,28 @@ class EcgFreiburg(Ecg):
         # Plot Data
         plt.plot(self.samples, label='Einthoven Lead II', linewidth=1.5, color='black')
 
-        # Plot Bereich
-        lower_limit = start_sec_abs*self.sample_rate
-        upper_limit = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
-
         # Plot Settings
-        plt.xlim(lower_limit, upper_limit)
-        plt.ylim(-1, 3)
-        plt.xlabel('Zeit[s]')
-        plt.ylabel('EKG [mV]')
         plt.grid(b=True, which='major', axis='both')
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)
-        new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
-        plt.gca().set_xticks(new_xticks)
-        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
-        plt.gca().set_xticklabels(new_time)
+        
+        # Cutted
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*self.sample_rate
+            upper_limit = start_sec_abs * self.sample_rate + duration_sec_rel * self.sample_rate
+            plt.xlim(lower_limit, upper_limit)
+            plt.xlabel('Zeit[s]')
+            plt.ylim(-1, 3)
+            plt.ylabel('EKG [mV]')
+            new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
+            plt.gca().set_xticks(new_xticks)
+            new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
+            plt.gca().set_xticklabels(new_time)
+
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic+'5210_Beispiel_Rohes_EKG_Signal.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def plot_ecg_preprocessed(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
+    def plot_ecg_preprocessed(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
         plots preprocessing steps
         '''
@@ -252,16 +316,18 @@ class EcgFreiburg(Ecg):
         gs1.update(hspace=0)
 
         # Plot Bereich
-        lower_limit = start_sec_abs*self.sample_rate
-        upper_limit = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*self.sample_rate
+            upper_limit = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
 
         # Plot Data
         ax1 = plt.subplot(gs1[0])
         ax1.grid(True)
         ax1.set_xticklabels([])
         plt.plot(self.samples, linewidth=1.5, color='black')
-        plt.xlim(lower_limit, upper_limit)
-        plt.ylim(-1, 3)
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            plt.xlim(lower_limit, upper_limit)
+            plt.ylim(-1, 3)
         plt.yticks([])
         plt.ylabel('Rohsignal')
 
@@ -269,8 +335,9 @@ class EcgFreiburg(Ecg):
         ax2.grid(True)
         ax2.set_xticklabels([])
         plt.plot(self.samples_filtered, linewidth=1.5, color='black')
-        plt.xlim(lower_limit, upper_limit)
-        plt.yticks([])
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            plt.xlim(lower_limit, upper_limit)
+            plt.yticks([])
         plt.ylabel('BP-Filter')
 
         ax3 = plt.subplot(gs1[2])
@@ -278,8 +345,9 @@ class EcgFreiburg(Ecg):
         ax3.set_xticklabels([])
         samples_diff = np.insert(self.samples_diff, 0, self.samples_diff[0])
         plt.plot(samples_diff, linewidth=1.5, color='black')
-        plt.xlim(lower_limit, upper_limit)
-        plt.yticks([])
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            plt.xlim(lower_limit, upper_limit)
+            plt.yticks([])
         plt.ylabel('5P-Diff')
 
         ax4 = plt.subplot(gs1[3])
@@ -287,8 +355,9 @@ class EcgFreiburg(Ecg):
         ax4.set_xticklabels([])
         samples_rect = np.insert(self.samples_rect, 0, self.samples_rect[0])
         plt.plot(samples_rect, label='Rectified', linewidth=1.5, color='black')
-        plt.xlim(lower_limit, upper_limit)
-        plt.yticks([])
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            plt.xlim(lower_limit, upper_limit)
+            plt.yticks([])
         plt.ylabel('Gleichrichter')
 
         ax5 = plt.subplot(gs1[4])
@@ -299,17 +368,18 @@ class EcgFreiburg(Ecg):
         plt.ylabel('GM-Filter')
 
         # Plot Settings
-        plt.xlim(lower_limit, upper_limit)
-        new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
-        plt.gca().set_xticks(new_xticks)
-        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
-        plt.gca().set_xticklabels(new_time)
-        plt.xlabel('Zeit[s]')
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            plt.xlim(lower_limit, upper_limit)
+            new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
+            plt.gca().set_xticks(new_xticks)
+            new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
+            plt.gca().set_xticklabels(new_time)
+            plt.xlabel('Zeit[s]')
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic+'5221_EKG_Preprocessing_des_Beispielsignals_nach_Hamilton.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def plot_ecg_detected_rpeaks(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
+    def plot_ecg_detected_rpeaks(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
         plots a raw ecg signal and detected r peaks
         '''
@@ -322,25 +392,27 @@ class EcgFreiburg(Ecg):
         plt.plot(peaks, self.samples[peaks], 'x', color=self.colours['wine'], linewidth=4, label='R-Zacken', markersize=8)
 
         # Plot Bereich
-        lower_limit = start_sec_abs*self.sample_rate
-        upper_limit = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*self.sample_rate
+            upper_limit = start_sec_abs * self.sample_rate + duration_sec_rel * self.sample_rate
+            plt.xlabel('Zeit[s]')
+            plt.xlim(lower_limit, upper_limit)
+            plt.ylim(-1, 3)
+            new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
+            plt.gca().set_xticks(new_xticks)
+            new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
+            plt.gca().set_xticklabels(new_time)
 
         # Plot Settings
-        plt.xlabel('Zeit[s]')
-        plt.xlim(lower_limit, upper_limit)
-        plt.ylim(-1, 3)
         plt.ylabel('EKG [mV]')
         plt.grid(b=True, which='major', axis='both')
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)
-        new_xticks = np.arange(lower_limit, upper_limit + 1, 2 * self.sample_rate)
-        plt.gca().set_xticks(new_xticks)
-        new_time = np.linspace(0, duration_sec_rel, len(new_xticks), endpoint=True, dtype=str)
-        plt.gca().set_xticklabels(new_time)
         plt.draw()
+
         if save_graphic is not None:
             plt.savefig(save_graphic + '5222_Beispielsignal_mit_detektierten_R-Zacken.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def plot_rr_interval_bartachogram(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
+    def plot_rr_interval_bartachogram(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
         plots the tachogram in bars and as a line of rr intervals
         '''
@@ -348,14 +420,19 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(12, 4))
 
         # Plot Bereich
-        lower_limit = start_sec_abs*1000
-        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*1000
+            upper_limit = start_sec_abs * 1000 + duration_sec_rel * 1000
+            area = range(lower_limit, upper_limit)
 
-        # Grab Data
-        local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
-        local_rr_intervals = []
-        for k in range(1, len(local_r_peaks)):
-            local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
+            # Grab Data
+            local_rr_intervals = []
+            local_rr_artefacts = []
+            for index, r_peak in enumerate(self.r_peaks):
+                if r_peak in area:
+                    local_rr_intervals.append(self.rr_intervals[index + 1])
+        else:
+            local_rr_intervals = self.rr_intervals
 
         # Plot Data
         plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
@@ -365,12 +442,51 @@ class EcgFreiburg(Ecg):
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.xlabel('Intervall [k]')
         plt.ylabel('Intervalllänge [ms]')
-        new_time = [0, 1, 2, 3, 4, 5, 6, 7, 8] # Wegen 9 R-Zacken
-        plt.gca().set_xticklabels(new_time)
-        plt.ylim(0, 1400)
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            new_time = [0, 1, 2, 3, 4, 5, 6, 7, 8] # Wegen 9 R-Zacken
+            plt.gca().set_xticklabels(new_time)
+            plt.ylim(0, 1400)
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '5223_Tachogramm_des_Beispielsignals.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+
+    def plot_rr_interval_histogram(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
+        '''
+        plots the histogram of rr_intervals of detected r peaks
+        '''
+        # Figur Erstellen
+        fig = plt.figure(figsize=(12, 4))
+
+        # Plot Bereich
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*1000
+            upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+            area = range(lower_limit, upper_limit)
+
+            # Grab Data
+            local_rr_intervals = []
+            local_rr_artefacts = []
+            for index, r_peak in enumerate(self.r_peaks):
+                if r_peak in area:
+                    local_rr_intervals.append(self.rr_intervals[index + 1])
+        else:
+            local_rr_intervals = self.rr_intervals
+
+        local_rr_intervals_array = np.array(local_rr_intervals)
+
+        # Plot Data
+        bin_sequence = np.arange(300, 2000 + 1, 10)
+        plt.hist(local_rr_intervals, bins=bin_sequence, label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
+        plt.xlim(300, 2000)
+
+        # Plot Settings
+        plt.xlabel('Intervalllänge [ms]')
+        plt.ylabel('Absolute Häufigkeit')
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#
+        plt.draw()
+
+        if save_graphic is not None:
+            plt.savefig(save_graphic + '5224_Histogramm_eines_5-Minuten-Abschnitts.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
     def plot_rr_interval_errors(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
@@ -380,7 +496,7 @@ class EcgFreiburg(Ecg):
         lower_limit_s = start_sec_abs*self.sample_rate
         upper_limit_s = start_sec_abs*self.sample_rate + duration_sec_rel * self.sample_rate
         lower_limit = start_sec_abs*1000
-        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        upper_limit = start_sec_abs * 1000 + duration_sec_rel * 1000
 
         # Grab Origin Data
         local_samples = self.samples[lower_limit_s:upper_limit_s]
@@ -398,7 +514,6 @@ class EcgFreiburg(Ecg):
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
         plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks], 'x', color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
-        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=self.colours['wine'], linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
         plt.grid(b=True, which='major', axis='both')
@@ -442,7 +557,6 @@ class EcgFreiburg(Ecg):
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
         plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks], 'x', color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
-        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=self.colours['wine'], linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
         plt.grid(b=True, which='major', axis='both')
@@ -486,7 +600,6 @@ class EcgFreiburg(Ecg):
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
         plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks], 'x', color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
-        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=self.colours['wine'], linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
         plt.grid(b=True, which='major', axis='both')
@@ -530,7 +643,6 @@ class EcgFreiburg(Ecg):
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
         plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks], 'x', color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
-        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
         plt.grid(b=True, which='major', axis='both')
@@ -574,7 +686,6 @@ class EcgFreiburg(Ecg):
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
         plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks], 'x', color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
-        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
         plt.grid(b=True, which='major', axis='both')
@@ -618,7 +729,6 @@ class EcgFreiburg(Ecg):
         plt.plot(local_samples, linewidth=1.5, color='black')
         ecg_error_peaks = [int((error_peak-lower_limit)/self.period_ms) for error_peak in error_peaks]
         plt.plot(ecg_error_peaks, local_samples[ecg_error_peaks], 'x', color=self.colours['wine'], linewidth=3, markersize=8, label='R-Zacken')
-        #plt.vlines(ecg_error_peaks, ymin=-1,ymax=3,color=red, linewidth=2)
         plt.ylim(-1, 3)
         plt.xlim(0, upper_limit_s - lower_limit_s)
         plt.grid(b=True, which='major', axis='both')
@@ -650,47 +760,100 @@ class EcgFreiburg(Ecg):
         if save_graphic is not None:
             plt.savefig(save_graphic + '5224_Error_Type_D.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def plot_rr_interval_histogram(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+    def plot_rr_interval_artefacts(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
-        plots the histogram of rr_intervals of detected r peaks
+        plots the tachogram of rr intervals with detected artefacts
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
-        ax1 = fig.add_subplot(111)
-        ax2 = ax1.twiny()
 
         # Plot Bereich
-        lower_limit = start_sec_abs*1000
-        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*1000
+            upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+            area = range(lower_limit, upper_limit)
 
-        # Grab Data
-        local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
-        local_rr_intervals = []
-        for k in range(1, len(local_r_peaks)):
-            local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
-        real_number_rr = len(local_rr_intervals)
-        local_rr_intervals_array = np.array(local_rr_intervals)
-        hr = np.divide(60000, local_rr_intervals)
-        hr_mean = int(np.mean(hr))
+            # Grab Data
+            local_rr_intervals = []
+            local_rr_artefacts = []
+            local_rr_artefacts_ectopic = []
+            local_rr_artefacts_longshort = []
+            local_rr_artefacts_extra = []
+            local_rr_artefacts_missed = []
+            for index, r_peak in enumerate(self.r_peaks):
+                if r_peak in area:
+                    local_rr_intervals.append(self.rr_intervals[index + 1])
+                    if self.rr_artefacts[index + 1] != 0:
+                        local_rr_artefacts.append(self.rr_intervals[index + 1])
+                    else:
+                        local_rr_artefacts.append(np.nan)
+                    if self.ectopic_intervals[index + 1] != 0:
+                        local_rr_artefacts_ectopic.append(self.rr_intervals[index + 1])
+                    else:
+                        local_rr_artefacts_ectopic.append(np.nan)
+                    if self.long_short_intervals[index + 1] != 0:
+                        local_rr_artefacts_longshort.append(self.rr_intervals[index + 1])
+                    else:
+                        local_rr_artefacts_longshort.append(np.nan)
+                    if self.extra_intervals[index + 1] != 0:
+                        local_rr_artefacts_extra.append(self.rr_intervals[index + 1])
+                    else:
+                        local_rr_artefacts_extra.append(np.nan)
+                    if self.missed_intervals[index + 1] != 0:
+                        local_rr_artefacts_missed.append(self.rr_intervals[index + 1])
+                    else:
+                        local_rr_artefacts_missed.append(np.nan)
+        else:
+            local_rr_intervals = self.rr_intervals
+            local_rr_artefacts = []
+            local_rr_artefacts_ectopic = []
+            local_rr_artefacts_longshort = []
+            local_rr_artefacts_extra = []
+            local_rr_artefacts_missed = []
+            for index, rr_interval in enumerate(local_rr_intervals):
+                    if self.rr_artefacts[index] != 0:
+                        local_rr_artefacts.append(self.rr_intervals[index])
+                    else:
+                        local_rr_artefacts.append(np.nan)
+                    if self.ectopic_intervals[index] != 0:
+                        local_rr_artefacts_ectopic.append(self.rr_intervals[index])
+                    else:
+                        local_rr_artefacts_ectopic.append(np.nan)
+                    if self.long_short_intervals[index] != 0:
+                        local_rr_artefacts_longshort.append(self.rr_intervals[index])
+                    else:
+                        local_rr_artefacts_longshort.append(np.nan)
+                    if self.extra_intervals[index] != 0:
+                        local_rr_artefacts_extra.append(self.rr_intervals[index])
+                    else:
+                        local_rr_artefacts_extra.append(np.nan)
+                    if self.missed_intervals[index] != 0:
+                        local_rr_artefacts_missed.append(self.rr_intervals[index])
+                    else:
+                        local_rr_artefacts_missed.append(np.nan)
+   
+        # Arraybildung
+        local_rr_intervals = np.array(local_rr_intervals)
+        local_rr_artefacts = np.array(local_rr_artefacts)
 
-        # Plot Data
-        bin_sequence = np.arange(800, 1400 + 1, 10)
-        ax1.hist(local_rr_intervals, bins=bin_sequence, label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
-        textstr = '\n'.join((f'Mittlere Herzrate: {hr_mean}bpm', f'Anzahl RR-Intervalle: {real_number_rr}'))
-        ax1.text(0.05, 0.95, textstr, transform=ax1.transAxes, fontsize=8, verticalalignment='top')#, bbox=props)
-        ax1.set_xlim(800, 1400)
-        ax2.set_xlim(800, 1400)
-        ax2.set_xticks([])
+        plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
+        plt.bar(np.arange(len(local_rr_artefacts)), local_rr_artefacts, width=1, align='center', label='RR-Intervall-Artefakte', color='white', edgecolor=self.colours['wine'], linewidth=3)
+        plt.plot(local_rr_artefacts_ectopic, 'x', color=self.colours['red'], linewidth=4, label='Ektopisch', markersize=8)
+        plt.plot(local_rr_artefacts_longshort, 'x', color=self.colours['purple'], linewidth=4, label='Long/Short', markersize=8)
+        plt.plot(local_rr_artefacts_extra, 'x', color=self.colours['grey'], linewidth=4, label='Extra', markersize=8)
+        plt.plot(local_rr_artefacts_missed, 'x', color=self.colours['yellow'], linewidth=4, label='Verfehlt', markersize=8)
+        plt.plot(local_rr_intervals, color=self.colours['blue'], linewidth=1.5, label='RR-Intervall-Folge')
 
         # Plot Settings
-        ax1.set_xlabel('Intervalllänge [ms]')
-        ax1.set_ylabel('Absolute Häufigkeit')
-        ax1.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)#fontsize='x-small'
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
+        plt.xlabel('Intervall [k]')
+        plt.ylabel('Intervalllänge [ms]')
+
         plt.draw()
         if save_graphic is not None:
-            plt.savefig(save_graphic + '5224_Histogramm_eines_5-Minuten-Abschnitts.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
+            plt.savefig(save_graphic + '5224_Detektierte_RR_Intervall_Artefakte_in_30s.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
 
-    def plot_rr_interval_tachogram(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+    def plot_rr_interval_tachogram(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
         plots the tachogram only as a line of rr intervals
         '''
@@ -698,67 +861,37 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(12, 4))
 
         # Plot Bereich
-        lower_limit = start_sec_abs*1000
-        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*1000
+            upper_limit = start_sec_abs * 1000 + duration_sec_rel * 1000
+            area = range(lower_limit, upper_limit)
 
-        # Grab Data
-        local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
-        local_rr_intervals = []
-        for k in range(1, len(local_r_peaks)):
-            local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
-
-        # Plot Data
-        plt.plot(local_rr_intervals, color='black', linewidth=1.5, label='NN-Intervall-Folge')
+            # Grab Data
+            local_rr_intervals = []
+            local_rr_artefacts = []
+            for index, r_peak in enumerate(self.r_peaks):
+                if r_peak in area:
+                    local_rr_intervals.append(self.rr_intervals[index + 1])
+            plt.plot(local_rr_intervals, color='black', linewidth=1.5, label='NN-Intervall-Folge')
+        else:
+            local_rr_intervals = self.rr_intervals
+            plt.plot(local_rr_intervals, color='black', linewidth=1.5, label='RR-Intervall-Folge')
 
         # Plot Settings
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.xlabel('Intervall [k]')
         plt.ylabel('Intervalllänge [ms]')
-        plt.ylim(800, 1400)
-        plt.xlim(0, len(local_rr_intervals)-1)
-        new_time = [1, 50, 100, 150, 200, 250]
-        plt.gca().set_xticklabels(new_time)
-        # plt.axis('off')
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            plt.ylim(800, 1400)
+            plt.xlim(0, len(local_rr_intervals)-1)
+            new_time = [1, 50, 100, 150, 200, 250]
+            plt.gca().set_xticklabels(new_time)
+            # plt.axis('off')
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '2211_Kontinuierliche_Darstellung_einer_NN-Intervall-Folge.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
 
-    def plot_rr_interval_artefacts(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
-        '''
-        plots the tachogram only as a line of rr intervals with detected artefacts
-        '''
-        # Figur Erstellen
-        fig = plt.figure(figsize=(12, 4))
-
-        # # Plot Bereich
-        # lower_limit = start_sec_abs*1000
-        # upper_limit = start_sec_abs*1000+duration_sec_rel*1000
-
-        # # Grab Data
-        # local_r_peaks = [r_peak for r_peak in self.r_peaks if r_peak in range(lower_limit, upper_limit)]
-        # local_rr_intervals = []
-        # for k in range(1, len(local_r_peaks)):
-        #     local_rr_intervals.append(math.ceil(local_r_peaks[k] - local_r_peaks[k - 1]))
-        # local_rr_artefacts = 
-
-        # Plot Data
-        plt.plot(self.rr_intervals, color='black', linewidth=1.5, label='NN-Intervall-Folge')
-        plt.plot(self.rr_artefacts*np.median(self.rr_intervals), 'x')
-
-        # Plot Settings
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
-        plt.xlabel('Intervall [k]')
-        plt.ylabel('Intervalllänge [ms]')
-        #plt.ylim(800, 1400)
-        #plt.xlim(0, len(local_rr_intervals)-1)
-        #new_time = [1, 50, 100, 150, 200, 250]
-        #plt.gca().set_xticklabels(new_time)
-        # plt.axis('off')
-        plt.draw()
-        if save_graphic is not None:
-            plt.savefig(save_graphic + 'TEST.svg', dpi=300, format='svg', transparent=True, bbox_inches='tight')
-
-    def plot_rr_interval_pointcare(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+    def plot_rr_interval_pointcare(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
         plots the pointcare diagram of rr intervals
         '''
@@ -767,16 +900,26 @@ class EcgFreiburg(Ecg):
         ax = fig.add_subplot(111)
 
         # Plot Bereich
-        lower_limit = start_sec_abs*1000
-        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*1000
+            upper_limit = start_sec_abs * 1000 + duration_sec_rel * 1000
+            area = range(lower_limit, upper_limit)
 
-        # Grab Data
-        rri_sum = 0
-        rr_intervals = []
-        for rri in self.rr_intervals:
-            rri_sum = rri_sum + rri
-            if rri_sum in range(lower_limit, upper_limit):
+            # Grab Data
+            rri_sum = 0
+            rr_intervals = []
+            for rri in self.rr_intervals:
+                rri_sum = rri_sum + rri
+                if rri_sum in area:
+                    rr_intervals.append(rri)
+        else:
+            # Grab Data
+            rri_sum = 0
+            rr_intervals = []
+            for rri in self.rr_intervals:
+                rri_sum = rri_sum + rri
                 rr_intervals.append(rri)
+            
         x = rr_intervals.copy()
         x.pop(-1)
         y = rr_intervals.copy()
@@ -791,19 +934,29 @@ class EcgFreiburg(Ecg):
         ax.arrow(np.mean(rr_intervals), np.mean(rr_intervals), (-sd1 + na) * np.cos(np.deg2rad(45)), (sd1 - na) * np.sin(np.deg2rad(45)), head_width=5, head_length=5, fc=self.colours['blue'], ec=self.colours['blue'], zorder=4, linewidth=1.5)
         ax.arrow(np.mean(rr_intervals), np.mean(rr_intervals), (sd2 - na) * np.cos(np.deg2rad(45)), (sd2 - na) * np.sin(np.deg2rad(45)), head_width=5, head_length=5, fc=self.colours['wine'], ec=self.colours['wine'], zorder=4, linewidth=1.5)
         ax.add_line(mpl.lines.Line2D((np.mean(rr_intervals) - sd1 * np.cos(np.deg2rad(45)) * na, np.mean(rr_intervals) + sd1 * np.cos(np.deg2rad(45)) * na), (np.mean(rr_intervals) + sd1 * np.sin(np.deg2rad(45)) * na, np.mean(rr_intervals) - sd1 * np.sin(np.deg2rad(45)) * na), c=self.colours['blue'], ls=':', alpha=0.6))
-        ax.add_line(mpl.lines.Line2D((800, 1400), (800, 1400), c=self.colours['wine'], ls=':', alpha=0.6))
-        ax.set_xlim(800, 1400)
-        ax.set_ylim(800, 1400)
-        ax.scatter(1401, 1401, label='SD1', color=self.colours['blue'])
-        ax.scatter(1401, 1401, label='SD2', color=self.colours['wine'])
-        ax.set_xlabel(r'$NN_j [ms]$')
-        ax.set_ylabel(r'$NN_{j+1} [ms]$')
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            ax.add_line(mpl.lines.Line2D((800, 1400), (800, 1400), c=self.colours['wine'], ls=':', alpha=0.6))
+            ax.set_xlim(800, 1400)
+            ax.set_ylim(800, 1400)
+            ax.scatter(1401, 1401, label='SD1', color=self.colours['blue'])
+            ax.scatter(1401, 1401, label='SD2', color=self.colours['wine'])
+            ax.set_xlabel(r'$NN_j [ms]$')
+            ax.set_ylabel(r'$NN_{j+1} [ms]$')
+        else:
+            ax.add_line(mpl.lines.Line2D((300, 2000), (300, 2000), c=self.colours['wine'], ls=':', alpha=0.6))
+            ax.set_xlim(300, 2000)
+            ax.set_ylim(300, 2000)
+            ax.scatter(2001, 2001, label='SD1', color=self.colours['blue'])
+            ax.scatter(2001, 2001, label='SD2', color=self.colours['wine'])
+            ax.set_xlabel(r'$RR_j [ms]$')
+            ax.set_ylabel(r'$RR_{j+1} [ms]$')
+
         ax.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '2213_Poincare_Diagramm.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def plot_rr_interval_dfa(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+    def plot_rr_interval_dfa(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
         plots the dfa diagram of rr intervals
         '''
@@ -811,15 +964,24 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(6, 6))
 
         # Plot Bereich
-        lower_limit = start_sec_abs*1000
-        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*1000
+            upper_limit = start_sec_abs * 1000 + duration_sec_rel * 1000
+            area = range(lower_limit, upper_limit)
 
-        # Grab Data
-        rri_sum = 0
-        rr_intervals = []
-        for rri in self.rr_intervals:
-            rri_sum = rri_sum + rri
-            if rri_sum in range(lower_limit, upper_limit):
+            # Grab Data
+            rri_sum = 0
+            rr_intervals = []
+            for rri in self.rr_intervals:
+                rri_sum = rri_sum + rri
+                if rri_sum in area:
+                    rr_intervals.append(rri)
+        else:
+            # Grab Data
+            rri_sum = 0
+            rr_intervals = []
+            for rri in self.rr_intervals:
+                rri_sum = rri_sum + rri
                 rr_intervals.append(rri)
 
         short = range(4, 16+1)
@@ -845,10 +1007,11 @@ class EcgFreiburg(Ecg):
         plt.ylabel('ln F[n]')
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
         plt.draw()
+
         if save_graphic is not None:
             plt.savefig(save_graphic + '2213_Trendbereinigte_Fluktuationsanalyse.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def plot_rr_interval_psd(self, start_sec_abs=30, duration_sec_rel=300, save_graphic=None):
+    def plot_rr_interval_psd(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
         plots the psd of rr intervals
         '''
@@ -856,16 +1019,25 @@ class EcgFreiburg(Ecg):
         fig = plt.figure(figsize=(12, 4))
 
         # Plot Bereich
-        lower_limit = start_sec_abs*1000
-        upper_limit = start_sec_abs*1000+duration_sec_rel*1000
+        if start_sec_abs is not None and duration_sec_rel is not None:
+            lower_limit = start_sec_abs*1000
+            upper_limit = start_sec_abs * 1000 + duration_sec_rel * 1000
+            area = range(lower_limit, upper_limit)
 
-        # Grab Data
-        rri_sum = 0
-        rr_intervals = []
-        for rri in self.rr_intervals:
-            rri_sum = rri_sum + rri
-            if rri_sum in range(lower_limit, upper_limit):
-                rr_intervals.append(int(rri))
+            # Grab Data
+            rri_sum = 0
+            rr_intervals = []
+            for rri in self.rr_intervals:
+                rri_sum = rri_sum + rri
+                if rri_sum in area:
+                    rr_intervals.append(rri)
+        else:
+            # Grab Data
+            rri_sum = 0
+            rr_intervals = []
+            for rri in self.rr_intervals:
+                rri_sum = rri_sum + rri
+                rr_intervals.append(rri)
 
         rr_timestamps_cumsum = np.cumsum(rr_intervals) /1000 # in sec damit Hz
         rr_timestamps = (rr_timestamps_cumsum - rr_timestamps_cumsum[0])
@@ -891,50 +1063,4 @@ class EcgFreiburg(Ecg):
         if save_graphic is not None:
             plt.savefig(save_graphic + '2212_Schätzung_des_Leistungsdichtespektrums_der_NN_Intervall_Folge.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def export_error_stats(self, path, name):
-        name = [name]
 
-        window_stats = []
-        window_stats.append(self.plausible+self.unplausible_no_data+self.unplausible_artefacts)
-        window_stats.append(self.plausible)
-        window_stats.append(self.unplausible_no_data+self.unplausible_artefacts)
-        window_stats.append(self.unplausible_no_data)
-        window_stats.append(self.unplausible_artefacts)
-        
-        rr_stats = []
-        artefacts_list = self.ectopic_intervals + self.long_short_intervals + self.extra_intervals + self.missed_intervals
-        if self.rr_checked:
-            rr_stats.append(int(np.cumsum(self.rr_checked)[-1]))
-        else:
-            rr_stats.append(0)
-        if artefacts_list:
-            rr_stats.append(int(np.cumsum(artefacts_list)[-1]))
-        else:
-            rr_stats.append(0)
-        if self.ectopic_intervals:
-            rr_stats.append(int(np.cumsum(self.ectopic_intervals)[-1]))
-        else:
-            rr_stats.append(0)
-        if self.long_short_intervals:
-            rr_stats.append(int(np.cumsum(self.long_short_intervals)[-1]))
-        else:
-            rr_stats.append(0)
-        if self.extra_intervals:
-            rr_stats.append(int(np.cumsum(self.extra_intervals)[-1]))
-        else:
-            rr_stats.append(0)
-        if self.missed_intervals:
-            rr_stats.append(int(np.cumsum(self.missed_intervals)[-1]))
-        else:
-            rr_stats.append(0)
-        
-        error_stats = name+window_stats+rr_stats
-
-        with open(path, 'a') as file:
-            writer = csv.writer(file)
-            writer.writerow(error_stats)
-    
-    
-
-
-        

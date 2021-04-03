@@ -28,10 +28,6 @@ class Ecg(metaclass=abc.ABCMeta):
         self.r_peaks = []
         self.rr_intervals = []
         self.rr_artefacts = []
-        self.rr_checked = []
-        self.plausible = 0
-        self.unplausible_no_data = 0
-        self.unplausible_artefacts = 0
         self.ectopic_intervals = []
         self.missed_intervals = []
         self.extra_intervals = []
@@ -205,12 +201,12 @@ class Ecg(metaclass=abc.ABCMeta):
         medrr_intervals = []
         mrr_intervals = []
         for index, rr_interval in enumerate(rr_intervals):
-            if index < 5 or index > (len(rr_intervals) - 5):
-                local_medrr = np.median(rr_intervals[0:10])
+            if index < 10 or index > (len(rr_intervals) - 10):
+                local_medrr = np.median(rr_intervals[0:20])
                 medrr_intervals.append(local_medrr)
                 mrr_intervals.append(rr_interval - local_medrr)            
             else:
-                local_medrr = np.median(rr_intervals[index - 5:index + 6])
+                local_medrr = np.median(rr_intervals[index - 10:index + 11])
                 medrr_intervals.append(local_medrr)
                 mrr_intervals.append(rr_interval - local_medrr)
 
@@ -238,13 +234,14 @@ class Ecg(metaclass=abc.ABCMeta):
         drr_intervals_n = np.divide(drr_intervals, threshold_1)
         mrr_intervals_n = np.divide(mrr_intervals, threshold_2)
 
+        #Constants
         const_1 = 0.13
         const_2 = 0.17
         index = 1
-        # test_ec = []
-        # test_mi = []
-        # test_ex = []
-        # test_ls = []
+        self.ectopic_intervals = np.zeros(len(rr_intervals))
+        self.missed_intervals = np.zeros(len(rr_intervals))
+        self.extra_intervals = np.zeros(len(rr_intervals))
+        self.long_short_intervals = np.zeros(len(rr_intervals))
 
         # Detektionsdurchlauf
         while index < len(drr_intervals_n)-2:
@@ -253,53 +250,66 @@ class Ecg(metaclass=abc.ABCMeta):
                 if s11 > 0:
                     s12 = max(drr_intervals_n[index - 1],drr_intervals_n[index + 1])
                 else:
-                    s12 = min(drr_intervals_n[index - 1],drr_intervals_n[index + 1])
+                    s12 = min(drr_intervals_n[index - 1], drr_intervals_n[index + 1])
                 eq1 = ((s11 > 1) and (s12 < -const_1 * s11 - const_2))
                 eq2 = ((s11 < -1) and (s12 > -const_1 * s11 + const_2))
-                if eq1 or eq2: #Ectopic
-                    self.ectopic_intervals.append(2)
+                if eq1: #Ectopic NPN
+                    self.ectopic_intervals[index] = 1
                     self.rr_artefacts[index] = 1
-                    self.rr_artefacts[index+1] = 1
-                    #test_ec.append(index)
-                    index += 2
+                    if drr_intervals_n[index - 1] > drr_intervals_n[index + 1]:
+                        self.ectopic_intervals[index - 1] = 1
+                        self.rr_artefacts[index-1] = 1
+                        index += 1
+                    else:
+                        self.ectopic_intervals[index + 1] = 1
+                        self.rr_artefacts[index+1] = 1
+                        index += 2
+                    continue
+                elif eq2:  #Ectopic PNP
+                    self.ectopic_intervals[index] = 1
+                    self.rr_artefacts[index] = 1
+                    if drr_intervals_n[index - 1] < drr_intervals_n[index + 1]:
+                        self.ectopic_intervals[index - 1] = 1
+                        self.rr_artefacts[index-1] = 1
+                        index += 1
+                    else:
+                        self.ectopic_intervals[index + 1] = 1
+                        self.rr_artefacts[index+1] = 1
+                        index += 2
                     continue
                 elif abs(mrr_intervals_n[index]) > 1:
                     s21 = drr_intervals_n[index]
                     if s21 >= 0:
-                        s22 = min(drr_intervals_n[index + 1],drr_intervals_n[index + 2])
+                        s22 = min(drr_intervals_n[index + 1], drr_intervals_n[index + 2])
                     else:
-                        s22 = max(drr_intervals_n[index + 1],drr_intervals_n[index + 2])
+                        s22 = max(drr_intervals_n[index + 1], drr_intervals_n[index + 2])
                     eq3 = (s21 < -1 and s22 > 1)
                     eq4a = ((mrr_intervals_n[index]) < -1)
                     eq4b = ((mrr_intervals_n[index]) > 1)
                     eq5 = (s21 > 1 and s22 < -1)
                     if eq3 and eq4a:
-                        eq6 = abs(rr_intervals[index]+rr_intervals[index+1]-medrr_intervals[index]) < threshold_2[index]
+                        eq6 = abs(rr_intervals[index]+rr_intervals[index+1]-medrr_intervals[index]) *0.8 < threshold_2[index]
                         if eq6: # Extra
-                            self.extra_intervals.append(2)
-                            self.rr_artefacts[index] = 1
-                            self.rr_artefacts[index+1] = 1
-                            #test_ex.append(index)
+                            self.extra_intervals[index:index+2] = 1
+                            self.rr_artefacts[index:index+2] = 1
                             index += 2
                             continue
                         else: # Short
-                            self.long_short_intervals.append(1)
+                            self.long_short_intervals[index] = 1
                             self.rr_artefacts[index] = 1
-                            #test_ls.append(index)
                             index += 1
+                            continue
                     elif eq5 and eq4b:
                         eq7 = rr_intervals[index] / medrr_intervals[index] > 2
                         if eq7: # Missed
                             weight = math.floor(np.divide(rr_intervals[index], np.median(rr_intervals)))
-                            self.missed_intervals.append(int(weight))
+                            self.missed_intervals[index] = int(weight)
                             self.rr_artefacts[index] = int(weight)
-                            #test_mi.append(index)
                             index += 1
                             continue
                         else: # Long
-                            self.long_short_intervals.append(1)
+                            self.long_short_intervals[index] = 1
                             self.rr_artefacts[index] = 1
-                            #test_ls.append(index)
                             index += 1
                             continue
                     else:
@@ -308,62 +318,29 @@ class Ecg(metaclass=abc.ABCMeta):
                     index += 1
             else:
                 index += 1
-        # colours = {'blue': (0, 0.4470, 0.7410), 'red': (0.8500, 0.3250, 0.0980), 'yellow': (0.9290, 0.6940, 0.1250), 'purple': (0.4940, 0.1840, 0.5560), 'grey': (0.5140, 0.5140, 0.5140), 'wine': (0.6350, 0.0780, 0.1840)}
-        # fig, (ax1,ax2,ax3)= plt.subplots(3, sharex=True, gridspec_kw={'hspace': 0.2})
-
-        # ax1.plot(rr_intervals, color='black', linewidth=1.5, label='RR-Intervall-Folge')
-        # if test_ec:
-        #     ax1.plot(test_ec, rr_intervals[test_ec], 'x', color=colours['blue'], label='Ectopic')
-        # if test_mi:
-        #     ax1.plot(test_mi, rr_intervals[test_mi], 'x', color=colours['red'], label='Missed')
-        # if test_ex:
-        #     ax1.plot(test_ex, rr_intervals[test_ex], 'x', color=colours['purple'], label='Extra')
-        # if test_ls:
-        #     ax1.plot(test_ls, rr_intervals[test_ls], 'x', color=colours['wine'], label='LongShort')
-        # ax2.axhline(y=1, color=colours['wine'], linewidth=1.5)
-        # ax2.plot(abs(drr_intervals_n), color='black', linewidth=1.5, label='dRR-Intervall-Folge')
-        # ax3.plot(mrr_intervals_n, color='black', linewidth=1.5, label='mRR-Intervall-Folge')
-        # ax3.axhline(y=1, color=colours['wine'], linewidth=1.5)
-        # ax3.axhline(y=-1, color=colours['wine'], linewidth=1.5)
-        # ax1.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc='lower left', mode='expand', borderaxespad=0, ncol=4)
-        # ax3.set_xlabel('Intervall [k]')
-        # ax1.set_ylabel('RR [ms]')
-        # ax2.set_ylabel('dRR')
-        # ax3.set_ylabel('mRR')
-        # ax1.set_xlim(0,)
-        # #ax1.set_ylim(600, 1400)
-        # ax2.set_ylim(0, 1.5)
-        # ax3.set_ylim(-2,2)
-        # plt.draw()
-        # plt.show(block=False)
-        # plt.pause(0.1)
-        # plt.close()
 
     def hrv_features_time(self, rr_intervals):
         '''
         This method calculates all time features
         '''
+        # timespace or index equals 300k/4ms = 75000 werte; = len(rr_intervals) with nan +1 symmetrisch # übergabe = 
+        rr_intervals = rr_intervals[~np.isnan(rr_intervals)] #without nan, with nan->time would be possible, ein feld = 4ms, strange funtctions 
+        
         # For Calculation
         drr = np.diff(rr_intervals)
-        drr_mean = np.mean(drr)
-        drr_dev = [val - drr_mean for val in drr]
         hr = np.divide(60000, rr_intervals)
 
         # Statistical Features
-        rr_median = np.median(rr_intervals)
-        rr_mean = np.mean(rr_intervals)
-        sdnn = np.std(rr_intervals, ddof=1)
-        sdsd = np.std(drr, ddof=1)
-        rmssd = np.sqrt(np.mean(drr ** 2))
-        nn50 = sum(np.abs(drr) > 50)
-        pnn50 = (nn50 / len(rr_intervals)) * 100
+        sdnn = np.std(rr_intervals, ddof=1) #240
+        sdsd = np.std(drr, ddof=1) #10s
+        rmssd = np.sqrt(np.mean(drr ** 2)) #10s
+        nn50 = sum(np.abs(drr) > 50) #60s
+        pnn50 = (nn50 / len(rr_intervals)) * 100 #60s
 
         # Heartrate Features
-        hr_max_min = max(hr)-min(hr)
+        hr_max_min = max(hr)-min(hr) #240s
 
         time_features = {
-            'RR_MEDIAN': rr_median,
-            'RR_MEAN': rr_mean,
             'SDNN': sdnn,
             'SDSD': sdsd,
             'RMSSD': rmssd,
@@ -378,9 +355,9 @@ class Ecg(metaclass=abc.ABCMeta):
         This method calculates all frequency features
         '''
         # For Calculation
+        rr_intervals = rr_intervals[~np.isnan(rr_intervals)] #240s smaller is bullshit
         rr_timestamps_cumsum = np.cumsum(rr_intervals) /1000 # in sec damit Hz
         rr_timestamps = rr_timestamps_cumsum - rr_timestamps_cumsum[0]
-        # rr_intervals = rr_intervals / 1000 # damit Magnitude in sec
 
         # LombScargle by Astropy
         freq, psd = LombScargle(rr_timestamps, rr_intervals, normalization='psd').autopower(minimum_frequency=0.040, maximum_frequency=0.400, samples_per_peak=5)
@@ -393,7 +370,7 @@ class Ecg(metaclass=abc.ABCMeta):
 
         # Spectal Features
         lf_power = np.trapz(y=psd[lf_indexes], x=freq[lf_indexes])
-        hf_power = np.trapz(y=psd[hf_indexes], x=freq[hf_indexes])
+        hf_power = np.trapz(y=psd[hf_indexes], x=freq[hf_indexes]) 
         lf_peak = freq[lf_indexes].max()
         hf_peak = freq[hf_indexes].max()
         lf_hf_ratio = lf_power / hf_power
@@ -417,6 +394,7 @@ class Ecg(metaclass=abc.ABCMeta):
         This method calculates all nonlinear features
         '''
         # For Calculation
+        rr_intervals = rr_intervals[~np.isnan(rr_intervals)] #120s for sd1, 240s fpr dfa
         drr = np.diff(rr_intervals)
         short = range(4, 16 + 1)
         long = range(17, 64 + 1)
@@ -424,19 +402,19 @@ class Ecg(metaclass=abc.ABCMeta):
         # Poincare Features
         sd1 = np.sqrt((np.std(drr, ddof=1) ** 2) * 0.5)
         sd2 = np.sqrt(2 * np.std(rr_intervals, ddof=1) ** 2 - 0.5 * np.std(drr, ddof=1) ** 2)
-        T = 4 * sd1
-        L = 4 * sd2
-        csi = sd2 / sd1
-        modified_csi = (L ** 2) / T
-        cvi = np.log10(L * T)
+        T = 4 * sd1 #90s
+        L = 4 * sd2 #90s
+        csi = sd2 / sd1 #90s
+        modified_csi = (L ** 2) / T #100 zacken
+        cvi = np.log10(L * T) #90s
 
         # DFA Features
         if len(rr_intervals) > 2:
             df_alpha_1 = nolds.dfa(rr_intervals, short, debug_data=False, overlap=False)
             df_alpha_2 = nolds.dfa(rr_intervals, long, debug_data=False, overlap=False)
         else:
-            df_alpha_1 = np.nan
-            df_alpha_2 = np.nan
+            df_alpha_1 = np.nan #120s
+            df_alpha_2 = np.nan #180s
 
         nonlinear_features = {
             'SD1': sd1,
