@@ -246,33 +246,16 @@ class EcgFreiburg(Ecg):
 
         # Ohne Gewichtung
         artefacts = [1 for artefact in self.rr_artefacts if artefact != 0]
-        if artefacts:
-            rr_stats.append(np.cumsum(artefacts)[-1])
-        else:
-            rr_stats.append(0)
+        artefacts = np.array(artefacts)
+        rr_stats.append(np.cumsum(artefacts)[-1])
 
         # Mit Klassifikation und Gewichtung
         artefacts_list = self.ectopic_intervals + self.long_short_intervals + self.extra_intervals + self.missed_intervals
-        if artefacts_list:
-            rr_stats.append(int(np.cumsum(artefacts_list)[-1]))
-        else:
-            rr_stats.append(0)
-        if self.ectopic_intervals:
-            rr_stats.append(int(np.cumsum(self.ectopic_intervals)[-1]))
-        else:
-            rr_stats.append(0)
-        if self.long_short_intervals:
-            rr_stats.append(int(np.cumsum(self.long_short_intervals)[-1]))
-        else:
-            rr_stats.append(0)
-        if self.extra_intervals:
-            rr_stats.append(int(np.cumsum(self.extra_intervals)[-1]))
-        else:
-            rr_stats.append(0)
-        if self.missed_intervals:
-            rr_stats.append(int(np.cumsum(self.missed_intervals)[-1]))
-        else:
-            rr_stats.append(0)
+        rr_stats.append(int(np.cumsum(artefacts_list)[-1]))
+        rr_stats.append(int(np.cumsum(self.ectopic_intervals)[-1]))
+        rr_stats.append(int(np.cumsum(self.long_short_intervals)[-1]))
+        rr_stats.append(int(np.cumsum(self.extra_intervals)[-1]))
+        rr_stats.append(int(np.cumsum(self.missed_intervals)[-1]))
 
         error_stats = name+window_stats+rr_stats
 
