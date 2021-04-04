@@ -1,8 +1,8 @@
 '''
 ecg_freiburg.py
 '''
-
 import math
+import csv
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -11,7 +11,6 @@ import matplotlib.gridspec as gridspec
 from pyedflib import highlevel
 from astropy.timeseries import LombScargle
 import nolds
-import csv  
 from medipy.interfaces.ecg import Ecg
 
 class EcgFreiburg(Ecg):
@@ -89,6 +88,9 @@ class EcgFreiburg(Ecg):
             self.seizures = [seizure for seizure in self.seizures if seizure[0] in range(self.grid[0], self.grid[-1])]
 
     def window_plausibility_check(self, rr_intervals_window, rr_artefacts_window, artefact_level=0.01):
+        '''
+        This method checks weather the window has to many artefacts or not
+        '''
         rr_intervals = rr_intervals_window[~np.isnan(rr_intervals_window)]
         if np.nansum(rr_artefacts_window) > artefact_level * len(rr_intervals):
             self.unplausible_window += 1
@@ -128,7 +130,7 @@ class EcgFreiburg(Ecg):
 
         # Combine in Signal Dataframe
         signal_df = pd.concat([samples_df, r_peaks_df], ignore_index=False, axis=1).fillna(value=np.nan)
-        
+
         # Seizures in Dataframe
         seizures_values = []
         seizures_index = []
@@ -136,7 +138,7 @@ class EcgFreiburg(Ecg):
             seizures_values.append(seizure[1])
             seizures_index.append(seizure[0])
         seizures_df = pd.DataFrame({'SEIZURES': seizures_values}, index=seizures_index)
-        
+
         # Metas of Seizures in Dataframe
         meta_df = pd.read_csv(include_meta, delimiter=';')
         meta_df = meta_df[meta_df['UKLEEG_NUMBER'].isin([self.patient_id])]
@@ -150,7 +152,7 @@ class EcgFreiburg(Ecg):
         # Add Meta to Seizures Df
         seizures_df = pd.concat([seizures_df, meta_df], ignore_index=False, axis=1)
 
-        # Add all seizures to signal_df also meta of OTHER so that after filtering infos about location close to myoclonic seizures is still there   
+        # Add all seizures to signal_df also meta of OTHER so that after filtering infos about location close to myoclonic seizures is still there
         signal_df = pd.concat([signal_df, seizures_df], ignore_index=False, axis=1)
 
         # Drop all non myoclonic seizures
@@ -177,25 +179,25 @@ class EcgFreiburg(Ecg):
                 else:  #ll_area <= ul_calc_range[-1]
                     ul_calc_range.pop(-1)
                     ul_calc_range.append(ul_area)
-        
+
         # Create a mask from calc range to filter signal_df
         mask = []
-        len_test =0
+        len_check = 0
         for grid_val in self.grid: # Index of signal_df
-            len_test=len(mask)
-            for counter in range(len(ll_calc_range)):
-                if ll_calc_range[counter] <= grid_val < ul_calc_range[counter]:
+            len_check = len(mask)
+            for counter, ll_calc_val in enumerate(ll_calc_range):
+                if ll_calc_val <= grid_val < ul_calc_range[counter]:
                     mask.append(True)
-            if len_test == len(mask):
+            if len_check == len(mask):
                 mask.append(False)
 
         # Change signal_df with mask filter to calc grid
         signal_df = signal_df[mask]
-        
+
         # Get from Signal Dataframe including time information 'NUR EIN FRAME??
         rr_intervals_frame = signal_df['RR_INTERVALS'].to_numpy()
         rr_artefacts_frame = signal_df['RR_ARTEFACTS'].to_numpy()
-        
+
         # Create Feature Dataframe
         self.feature_df = pd.DataFrame(np.nan, index=signal_df.index, columns=time_feature_names + frequency_feature_names + nonlinear_feature_names)
         sliced_grid = signal_df.index.to_numpy()
@@ -210,8 +212,8 @@ class EcgFreiburg(Ecg):
         steps = [step for step in steps if step + half_window < steps[-1]]
         steps = np.array(steps)
         for step in steps:
-            rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window+1]
-            rr_artefacts_window = rr_artefacts_frame[step - half_window:step + half_window+1]
+            rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
+            rr_artefacts_window = rr_artefacts_frame[step - half_window:step + half_window]
             if not self.window_plausibility_check(rr_intervals_window, rr_artefacts_window, artefact_level=0.01):
                 continue
             time_features = self.hrv_features_time(rr_intervals_window)
@@ -219,7 +221,7 @@ class EcgFreiburg(Ecg):
             nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
             features = {**time_features, **frequency_features, **nonlinear_features}
             for feature in features:
-                self.feature_df.at[sliced_grid[step], feature] = features[feature] 
+                self.feature_df.at[sliced_grid[step], feature] = features[feature]
 
         # Merge
         self.feature_df = pd.concat([signal_df, self.feature_df], ignore_index=False, axis=1)
@@ -229,13 +231,16 @@ class EcgFreiburg(Ecg):
             self.feature_df.to_pickle(export)
 
     def export_error_stats(self, path, name):
+        '''
+        This method exports all information about checked windows and rr intervals as csv
+        '''
         name = [name]
 
         window_stats = []
         window_stats.append(self.plausible_window+self.unplausible_window)
         window_stats.append(self.plausible_window)
         window_stats.append(self.unplausible_window)
-        
+
         rr_stats = []
         rr_stats.append(len(self.rr_intervals))
 
@@ -268,7 +273,7 @@ class EcgFreiburg(Ecg):
             rr_stats.append(int(np.cumsum(self.missed_intervals)[-1]))
         else:
             rr_stats.append(0)
-        
+
         error_stats = name+window_stats+rr_stats
 
         with open(path, 'a') as file:
@@ -288,7 +293,7 @@ class EcgFreiburg(Ecg):
         # Plot Settings
         plt.grid(b=True, which='major', axis='both')
         plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.5), loc="lower left", mode='expand', borderaxespad=0, ncol=4)
-        
+
         # Cutted
         if start_sec_abs is not None and duration_sec_rel is not None:
             lower_limit = start_sec_abs*self.sample_rate
@@ -811,27 +816,27 @@ class EcgFreiburg(Ecg):
             local_rr_artefacts_extra = []
             local_rr_artefacts_missed = []
             for index, rr_interval in enumerate(local_rr_intervals):
-                    if self.rr_artefacts[index] != 0:
-                        local_rr_artefacts.append(self.rr_intervals[index])
-                    else:
-                        local_rr_artefacts.append(np.nan)
-                    if self.ectopic_intervals[index] != 0:
-                        local_rr_artefacts_ectopic.append(self.rr_intervals[index])
-                    else:
-                        local_rr_artefacts_ectopic.append(np.nan)
-                    if self.long_short_intervals[index] != 0:
-                        local_rr_artefacts_longshort.append(self.rr_intervals[index])
-                    else:
-                        local_rr_artefacts_longshort.append(np.nan)
-                    if self.extra_intervals[index] != 0:
-                        local_rr_artefacts_extra.append(self.rr_intervals[index])
-                    else:
-                        local_rr_artefacts_extra.append(np.nan)
-                    if self.missed_intervals[index] != 0:
-                        local_rr_artefacts_missed.append(self.rr_intervals[index])
-                    else:
-                        local_rr_artefacts_missed.append(np.nan)
-   
+                if self.rr_artefacts[index] != 0:
+                    local_rr_artefacts.append(self.rr_intervals[index])
+                else:
+                    local_rr_artefacts.append(np.nan)
+                if self.ectopic_intervals[index] != 0:
+                    local_rr_artefacts_ectopic.append(self.rr_intervals[index])
+                else:
+                    local_rr_artefacts_ectopic.append(np.nan)
+                if self.long_short_intervals[index] != 0:
+                    local_rr_artefacts_longshort.append(self.rr_intervals[index])
+                else:
+                    local_rr_artefacts_longshort.append(np.nan)
+                if self.extra_intervals[index] != 0:
+                    local_rr_artefacts_extra.append(self.rr_intervals[index])
+                else:
+                    local_rr_artefacts_extra.append(np.nan)
+                if self.missed_intervals[index] != 0:
+                    local_rr_artefacts_missed.append(self.rr_intervals[index])
+                else:
+                    local_rr_artefacts_missed.append(np.nan)
+
         # Arraybildung
         local_rr_intervals = np.array(local_rr_intervals)
         local_rr_artefacts = np.array(local_rr_artefacts)
@@ -883,8 +888,10 @@ class EcgFreiburg(Ecg):
         plt.ylabel('Intervalllänge [ms]')
         if start_sec_abs is not None and duration_sec_rel is not None:
             plt.ylim(800, 1400)
-            plt.xlim(0, len(local_rr_intervals)-1)
-            new_time = [1, 50, 100, 150, 200, 250]
+            plt.xlim(0, len(local_rr_intervals))
+            new_xticks = np.linspace(0, len(local_rr_intervals), num=5)
+            plt.gca().set_xticks(new_xticks)
+            new_time = [1, 60, 120, 180, 240]
             plt.gca().set_xticklabels(new_time)
             # plt.axis('off')
         plt.draw()
@@ -919,7 +926,7 @@ class EcgFreiburg(Ecg):
             for rri in self.rr_intervals:
                 rri_sum = rri_sum + rri
                 rr_intervals.append(rri)
-            
+
         x = rr_intervals.copy()
         x.pop(-1)
         y = rr_intervals.copy()
@@ -1062,5 +1069,3 @@ class EcgFreiburg(Ecg):
         plt.draw()
         if save_graphic is not None:
             plt.savefig(save_graphic + '2212_Schätzung_des_Leistungsdichtespektrums_der_NN_Intervall_Folge.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
-
-

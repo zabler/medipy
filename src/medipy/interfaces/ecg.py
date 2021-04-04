@@ -8,8 +8,6 @@ import nolds
 import numpy as np
 from scipy import signal
 from astropy.timeseries import LombScargle
-import matplotlib.pyplot as plt
-
 
 class Ecg(metaclass=abc.ABCMeta):
     '''
@@ -196,7 +194,7 @@ class Ecg(metaclass=abc.ABCMeta):
         self.rr_artefacts = np.zeros(len(rr_intervals))
         alpha = 5.2
         drr_intervals = np.diff(rr_intervals)
-        drr_intervals = np.insert(drr_intervals, 0, 0) 
+        drr_intervals = np.insert(drr_intervals, 0, 0)
 
         medrr_intervals = []
         mrr_intervals = []
@@ -204,7 +202,7 @@ class Ecg(metaclass=abc.ABCMeta):
             if index < 10 or index > (len(rr_intervals) - 10):
                 local_medrr = np.median(rr_intervals[0:20])
                 medrr_intervals.append(local_medrr)
-                mrr_intervals.append(rr_interval - local_medrr)            
+                mrr_intervals.append(rr_interval - local_medrr)
             else:
                 local_medrr = np.median(rr_intervals[index - 10:index + 11])
                 medrr_intervals.append(local_medrr)
@@ -212,21 +210,21 @@ class Ecg(metaclass=abc.ABCMeta):
 
         medrr_intervals = np.array(medrr_intervals)
         mrr_intervals = np.array(mrr_intervals)
-    
+
         threshold_1 = []
         threshold_2 = []
         for index, rr_interval in enumerate(rr_intervals):
             if index < 45 or index > (len(rr_intervals) - 45):
-                local_drr_intervals = drr_intervals[0:91]  
+                local_drr_intervals = drr_intervals[0:91]
                 threshold_1.append(((np.quantile(abs(local_drr_intervals), 0.75) - np.quantile(abs(local_drr_intervals), 0.25)) / 2) * alpha)
-                local_mrr_intervals = np.array(mrr_intervals[0:91])              
+                local_mrr_intervals = np.array(mrr_intervals[0:91])
                 threshold_2.append(((np.quantile(abs(local_mrr_intervals), 0.75) - np.quantile(abs(local_mrr_intervals), 0.25)) / 2) * alpha)
             else:
-                local_drr_intervals = drr_intervals[index - 45:index + 46]  
+                local_drr_intervals = drr_intervals[index - 45:index + 46]
                 threshold_1.append(((np.quantile(abs(local_drr_intervals), 0.75) - np.quantile(abs(local_drr_intervals), 0.25)) / 2) * alpha)
-                local_mrr_intervals = np.array(mrr_intervals[index - 45:index + 46])              
+                local_mrr_intervals = np.array(mrr_intervals[index - 45:index + 46])
                 threshold_2.append(((np.quantile(abs(local_mrr_intervals), 0.75) - np.quantile(abs(local_mrr_intervals), 0.25)) / 2) * alpha)
-        
+
         threshold_1 = np.array(threshold_1)
         threshold_2 = np.array(threshold_2)
 
@@ -248,7 +246,7 @@ class Ecg(metaclass=abc.ABCMeta):
             if abs(drr_intervals_n[index]) > 1:
                 s11 = drr_intervals_n[index]
                 if s11 > 0:
-                    s12 = max(drr_intervals_n[index - 1],drr_intervals_n[index + 1])
+                    s12 = max(drr_intervals_n[index - 1], drr_intervals_n[index + 1])
                 else:
                     s12 = min(drr_intervals_n[index - 1], drr_intervals_n[index + 1])
                 eq1 = ((s11 > 1) and (s12 < -const_1 * s11 - const_2))
@@ -323,22 +321,32 @@ class Ecg(metaclass=abc.ABCMeta):
         '''
         This method calculates all time features
         '''
-        # timespace or index equals 300k/4ms = 75000 werte; = len(rr_intervals) with nan +1 symmetrisch # übergabe = 
-        rr_intervals = rr_intervals[~np.isnan(rr_intervals)] #without nan, with nan->time would be possible, ein feld = 4ms, strange funtctions 
-        
+        # Different window size
+        rr_intervals_240 = rr_intervals[~np.isnan(rr_intervals)]
+        half = len(rr_intervals) / 2
+        rr_pre = int(half - (30000 / self.period_ms))
+        rr_post = int(half + (30000 / self.period_ms))
+        rr_intervals_60 = rr_intervals[rr_pre:rr_post]
+        rr_intervals_60 = rr_intervals_60[~np.isnan(rr_intervals_60)]
+        rr_pre = int(half - (5000 / self.period_ms))
+        rr_post = int(half + (5000 / self.period_ms))
+        rr_intervals_10 = rr_intervals[rr_pre:rr_post]
+        rr_intervals_10 = rr_intervals_10[~np.isnan(rr_intervals_10)]
+
         # For Calculation
-        drr = np.diff(rr_intervals)
-        hr = np.divide(60000, rr_intervals)
+        drr_10 = np.diff(rr_intervals_10)
+        drr_60 = np.diff(rr_intervals_10)
+        hr = np.divide(60000, rr_intervals_240)
 
         # Statistical Features
-        sdnn = np.std(rr_intervals, ddof=1) #240
-        sdsd = np.std(drr, ddof=1) #10s
-        rmssd = np.sqrt(np.mean(drr ** 2)) #10s
-        nn50 = sum(np.abs(drr) > 50) #60s
-        pnn50 = (nn50 / len(rr_intervals)) * 100 #60s
+        sdnn = np.std(rr_intervals_240, ddof=1)
+        sdsd = np.std(drr_10, ddof=1)
+        rmssd = np.sqrt(np.mean(drr_10 ** 2))
+        nn50 = sum(np.abs(drr_60) > 50)
+        pnn50 = (nn50 / len(rr_intervals_60)) * 100
 
         # Heartrate Features
-        hr_max_min = max(hr)-min(hr) #240s
+        hr_max_min = max(hr)-min(hr)
 
         time_features = {
             'SDNN': sdnn,
@@ -355,7 +363,7 @@ class Ecg(metaclass=abc.ABCMeta):
         This method calculates all frequency features
         '''
         # For Calculation
-        rr_intervals = rr_intervals[~np.isnan(rr_intervals)] #240s smaller is bullshit
+        rr_intervals = rr_intervals[~np.isnan(rr_intervals)]
         rr_timestamps_cumsum = np.cumsum(rr_intervals) /1000 # in sec damit Hz
         rr_timestamps = rr_timestamps_cumsum - rr_timestamps_cumsum[0]
 
@@ -370,7 +378,7 @@ class Ecg(metaclass=abc.ABCMeta):
 
         # Spectal Features
         lf_power = np.trapz(y=psd[lf_indexes], x=freq[lf_indexes])
-        hf_power = np.trapz(y=psd[hf_indexes], x=freq[hf_indexes]) 
+        hf_power = np.trapz(y=psd[hf_indexes], x=freq[hf_indexes])
         lf_peak = freq[lf_indexes].max()
         hf_peak = freq[hf_indexes].max()
         lf_hf_ratio = lf_power / hf_power
@@ -394,27 +402,32 @@ class Ecg(metaclass=abc.ABCMeta):
         This method calculates all nonlinear features
         '''
         # For Calculation
-        rr_intervals = rr_intervals[~np.isnan(rr_intervals)] #120s for sd1, 240s fpr dfa
-        drr = np.diff(rr_intervals)
+        rr_intervals_240 = rr_intervals[~np.isnan(rr_intervals)]
+        half = len(rr_intervals) / 2
+        rr_pre = int(half - (60000 / self.period_ms))
+        rr_post = int(half + (60000 / self.period_ms))
+        rr_intervals_120 = rr_intervals[rr_pre:rr_post]
+        rr_intervals_120 = rr_intervals_120[~np.isnan(rr_intervals_120)]
+        drr_120 = np.diff(rr_intervals_120)
         short = range(4, 16 + 1)
         long = range(17, 64 + 1)
 
         # Poincare Features
-        sd1 = np.sqrt((np.std(drr, ddof=1) ** 2) * 0.5)
-        sd2 = np.sqrt(2 * np.std(rr_intervals, ddof=1) ** 2 - 0.5 * np.std(drr, ddof=1) ** 2)
-        T = 4 * sd1 #90s
-        L = 4 * sd2 #90s
-        csi = sd2 / sd1 #90s
-        modified_csi = (L ** 2) / T #100 zacken
-        cvi = np.log10(L * T) #90s
+        sd1 = np.sqrt((np.std(drr_, ddof=1) ** 2) * 0.5)
+        sd2 = np.sqrt(2 * np.std(rr_intervals_120, ddof=1) ** 2 - 0.5 * np.std(drr_120, ddof=1) ** 2)
+        T = 4 * sd1
+        L = 4 * sd2
+        csi = sd2 / sd1
+        modified_csi = (L ** 2) / T
+        cvi = np.log10(L * T)
 
         # DFA Features
         if len(rr_intervals) > 2:
-            df_alpha_1 = nolds.dfa(rr_intervals, short, debug_data=False, overlap=False)
-            df_alpha_2 = nolds.dfa(rr_intervals, long, debug_data=False, overlap=False)
+            df_alpha_1 = nolds.dfa(rr_intervals_240, short, debug_data=False, overlap=False)
+            df_alpha_2 = nolds.dfa(rr_intervals_240, long, debug_data=False, overlap=False)
         else:
-            df_alpha_1 = np.nan #120s
-            df_alpha_2 = np.nan #180s
+            df_alpha_1 = np.nan
+            df_alpha_2 = np.nan
 
         nonlinear_features = {
             'SD1': sd1,
