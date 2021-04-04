@@ -413,7 +413,7 @@ class Ecg(metaclass=abc.ABCMeta):
         long = range(17, 64 + 1)
 
         # Poincare Features
-        sd1 = np.sqrt((np.std(drr_, ddof=1) ** 2) * 0.5)
+        sd1 = np.sqrt((np.std(drr_120, ddof=1) ** 2) * 0.5)
         sd2 = np.sqrt(2 * np.std(rr_intervals_120, ddof=1) ** 2 - 0.5 * np.std(drr_120, ddof=1) ** 2)
         T = 4 * sd1
         L = 4 * sd2
