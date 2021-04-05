@@ -214,7 +214,7 @@ class EcgFreiburg(Ecg):
         for step in steps:
             rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
             rr_artefacts_window = rr_artefacts_frame[step - half_window:step + half_window]
-            if not self.window_plausibility_check(rr_intervals_window, rr_artefacts_window, artefact_level=0.01):
+            if not self.window_plausibility_check(rr_intervals_window, rr_artefacts_window, artefact_level=0.05):
                 continue
             time_features = self.hrv_features_time(rr_intervals_window)
             frequency_features = self.hrv_features_frequency(rr_intervals_window)
