@@ -25,7 +25,7 @@ class Ecg(metaclass=abc.ABCMeta):
         self.grid = None
         self.r_peaks = []
         self.rr_intervals = []
-        self.rr_artefacts = []
+        self.rr_errors = []
         self.ectopic_intervals = []
         self.missed_intervals = []
         self.extra_intervals = []
@@ -184,14 +184,14 @@ class Ecg(metaclass=abc.ABCMeta):
         for k in range(1, len(self.r_peaks)):
             self.rr_intervals.append(math.ceil(self.r_peaks[k] - self.r_peaks[k - 1]))
 
-    def rr_interval_artefact_detector_kubios(self):
+    def rr_interval_error_detector_kubios(self):
         '''
-        This method detects artefacts of a given rr interval list with an modified version of Lipponen and Tarvainen (Kubios) algorithm
+        This method detects errors of a given rr interval list with an modified version of Lipponen and Tarvainen (Kubios) algorithm
         '''
         # Preparation
 
         rr_intervals = np.array(self.rr_intervals)
-        self.rr_artefacts = np.zeros(len(rr_intervals))
+        self.rr_errors = np.zeros(len(rr_intervals))
         alpha = 5.2
         drr_intervals = np.diff(rr_intervals)
         drr_intervals = np.insert(drr_intervals, 0, 0)
@@ -253,26 +253,26 @@ class Ecg(metaclass=abc.ABCMeta):
                 eq2 = ((s11 < -1) and (s12 > -const_1 * s11 + const_2))
                 if eq1: #Ectopic NPN
                     self.ectopic_intervals[index] = 1
-                    self.rr_artefacts[index] = 1
+                    self.rr_errors[index] = 1
                     if drr_intervals_n[index - 1] > drr_intervals_n[index + 1]:
                         self.ectopic_intervals[index - 1] = 1
-                        self.rr_artefacts[index-1] = 1
+                        self.rr_errors[index-1] = 1
                         index += 1
                     else:
                         self.ectopic_intervals[index + 1] = 1
-                        self.rr_artefacts[index+1] = 1
+                        self.rr_errors[index+1] = 1
                         index += 2
                     continue
                 elif eq2:  #Ectopic PNP
                     self.ectopic_intervals[index] = 1
-                    self.rr_artefacts[index] = 1
+                    self.rr_errors[index] = 1
                     if drr_intervals_n[index - 1] < drr_intervals_n[index + 1]:
                         self.ectopic_intervals[index - 1] = 1
-                        self.rr_artefacts[index-1] = 1
+                        self.rr_errors[index-1] = 1
                         index += 1
                     else:
                         self.ectopic_intervals[index + 1] = 1
-                        self.rr_artefacts[index+1] = 1
+                        self.rr_errors[index+1] = 1
                         index += 2
                     continue
                 elif abs(mrr_intervals_n[index]) > 1:
@@ -289,25 +289,25 @@ class Ecg(metaclass=abc.ABCMeta):
                         eq6 = abs(rr_intervals[index]+rr_intervals[index+1]-medrr_intervals[index]) *0.8 < threshold_2[index]
                         if eq6: # Extra
                             self.extra_intervals[index:index+2] = 1
-                            self.rr_artefacts[index:index+2] = 1
+                            self.rr_errors[index:index+2] = 1
                             index += 2
                             continue
                         else: # Short
                             self.long_short_intervals[index] = 1
-                            self.rr_artefacts[index] = 1
+                            self.rr_errors[index] = 1
                             index += 1
                             continue
                     elif eq5 and eq4b:
                         eq7 = rr_intervals[index] / medrr_intervals[index] > 2
                         if eq7: # Missed
-                            weight = math.floor(np.divide(rr_intervals[index], np.median(rr_intervals)))
+                            weight = math.floor(np.divide(rr_intervals[index], medrr_intervals[index]))
                             self.missed_intervals[index] = int(weight)
-                            self.rr_artefacts[index] = int(weight)
+                            self.rr_errors[index] = int(weight)
                             index += 1
                             continue
                         else: # Long
                             self.long_short_intervals[index] = 1
-                            self.rr_artefacts[index] = 1
+                            self.rr_errors[index] = 1
                             index += 1
                             continue
                     else:

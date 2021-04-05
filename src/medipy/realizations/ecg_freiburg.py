@@ -87,17 +87,22 @@ class EcgFreiburg(Ecg):
             self.grid = np.arange(0, duration_s * self.sample_rate * self.period_ms, self.period_ms, dtype=int)
             self.seizures = [seizure for seizure in self.seizures if seizure[0] in range(self.grid[0], self.grid[-1])]
 
-    def window_plausibility_check(self, rr_intervals_window, rr_artefacts_window, artefact_level=0.01):
+    def window_plausibility_check(self, rr_intervals_window, rr_errors_window, error_level=0.01):
         '''
-        This method checks weather the window has to many artefacts or not
+        This method checks weather the window has to many errors or not
         '''
         rr_intervals = rr_intervals_window[~np.isnan(rr_intervals_window)]
-        if np.nansum(rr_artefacts_window) > artefact_level * len(rr_intervals):
+        # Security Mechanism
+        if len(rr_intervals) < 0:
             self.unplausible_window += 1
             return False
         else:
-            self.plausible_window += 1
-            return True
+            if np.nansum(rr_errors_window) > error_level * len(rr_intervals):
+                self.unplausible_window += 1
+                return False
+            else:
+                self.plausible_window += 1
+                return True
 
     def short_term_hrv_marked_extractor(self, window=300, overlap=0.999, area_min=30, include_meta=None, export=None):
         '''
@@ -124,9 +129,9 @@ class EcgFreiburg(Ecg):
         # R-Peaks, RR_Intervals and RR_Missings to Dataframe
         rr_intervals = self.rr_intervals.copy()
         rr_intervals = np.insert(rr_intervals, 0, int(np.mean(self.rr_intervals[0:10])))
-        rr_artefacts = self.rr_artefacts.copy()
-        rr_artefacts = np.insert(rr_artefacts, 0, 0)
-        r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals, 'RR_ARTEFACTS':rr_artefacts}, index=np.array(self.r_peaks))
+        rr_errors = self.rr_errors.copy()
+        rr_errors = np.insert(rr_errors, 0, 0)
+        r_peaks_df = pd.DataFrame({'R_PEAKS': np.array(self.r_peaks), 'RR_INTERVALS': rr_intervals, 'RR_ERRORS':rr_errors}, index=np.array(self.r_peaks))
 
         # Combine in Signal Dataframe
         signal_df = pd.concat([samples_df, r_peaks_df], ignore_index=False, axis=1).fillna(value=np.nan)
@@ -196,7 +201,7 @@ class EcgFreiburg(Ecg):
 
         # Get from Signal Dataframe including time information 'NUR EIN FRAME??
         rr_intervals_frame = signal_df['RR_INTERVALS'].to_numpy()
-        rr_artefacts_frame = signal_df['RR_ARTEFACTS'].to_numpy()
+        rr_errors_frame = signal_df['RR_ERRORS'].to_numpy()
 
         # Create Feature Dataframe
         self.feature_df = pd.DataFrame(np.nan, index=signal_df.index, columns=time_feature_names + frequency_feature_names + nonlinear_feature_names)
@@ -213,8 +218,8 @@ class EcgFreiburg(Ecg):
         steps = np.array(steps)
         for step in steps:
             rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
-            rr_artefacts_window = rr_artefacts_frame[step - half_window:step + half_window]
-            if not self.window_plausibility_check(rr_intervals_window, rr_artefacts_window, artefact_level=0.05):
+            rr_errors_window = rr_errors_frame[step - half_window:step + half_window]
+            if not self.window_plausibility_check(rr_intervals_window, rr_errors_window, error_level=0.05):
                 continue
             time_features = self.hrv_features_time(rr_intervals_window)
             frequency_features = self.hrv_features_frequency(rr_intervals_window)
@@ -245,13 +250,13 @@ class EcgFreiburg(Ecg):
         rr_stats.append(len(self.rr_intervals))
 
         # Ohne Gewichtung
-        artefacts = [1 for artefact in self.rr_artefacts if artefact != 0]
-        artefacts = np.array(artefacts)
-        rr_stats.append(np.cumsum(artefacts)[-1])
+        errors = [1 for error in self.rr_errors if error != 0]
+        errors = np.array(errors)
+        rr_stats.append(np.cumsum(errors)[-1])
 
         # Mit Klassifikation und Gewichtung
-        artefacts_list = self.ectopic_intervals + self.long_short_intervals + self.extra_intervals + self.missed_intervals
-        rr_stats.append(int(np.cumsum(artefacts_list)[-1]))
+        errors_list = self.ectopic_intervals + self.long_short_intervals + self.extra_intervals + self.missed_intervals
+        rr_stats.append(int(np.cumsum(errors_list)[-1]))
         rr_stats.append(int(np.cumsum(self.ectopic_intervals)[-1]))
         rr_stats.append(int(np.cumsum(self.long_short_intervals)[-1]))
         rr_stats.append(int(np.cumsum(self.extra_intervals)[-1]))
@@ -415,7 +420,7 @@ class EcgFreiburg(Ecg):
 
             # Grab Data
             local_rr_intervals = []
-            local_rr_artefacts = []
+            local_rr_errors = []
             for index, r_peak in enumerate(self.r_peaks):
                 if r_peak in area:
                     local_rr_intervals.append(self.rr_intervals[index + 1])
@@ -453,7 +458,7 @@ class EcgFreiburg(Ecg):
 
             # Grab Data
             local_rr_intervals = []
-            local_rr_artefacts = []
+            local_rr_errors = []
             for index, r_peak in enumerate(self.r_peaks):
                 if r_peak in area:
                     local_rr_intervals.append(self.rr_intervals[index + 1])
@@ -476,7 +481,7 @@ class EcgFreiburg(Ecg):
         if save_graphic is not None:
             plt.savefig(save_graphic + '5224_Histogramm_eines_5-Minuten-Abschnitts.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def plot_rr_interval_errors(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
+    def plot_rr_interval_simulated_errors(self, start_sec_abs=30, duration_sec_rel=10, save_graphic=None):
         '''
         plots all rr intervall erros incl. the ecg origin for the example signal
         '''
@@ -748,9 +753,9 @@ class EcgFreiburg(Ecg):
         if save_graphic is not None:
             plt.savefig(save_graphic + '5224_Error_Type_D.svg', dpi=300, format='svg', transparent=False, bbox_inches='tight')
 
-    def plot_rr_interval_artefacts(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
+    def plot_rr_interval_errors(self, start_sec_abs=None, duration_sec_rel=None, save_graphic=None):
         '''
-        plots the tachogram of rr intervals with detected artefacts
+        plots the tachogram of rr intervals with detected errors
         '''
         # Figur Erstellen
         fig = plt.figure(figsize=(12, 4))
@@ -763,73 +768,73 @@ class EcgFreiburg(Ecg):
 
             # Grab Data
             local_rr_intervals = []
-            local_rr_artefacts = []
-            local_rr_artefacts_ectopic = []
-            local_rr_artefacts_longshort = []
-            local_rr_artefacts_extra = []
-            local_rr_artefacts_missed = []
+            local_rr_errors = []
+            local_rr_errors_ectopic = []
+            local_rr_errors_longshort = []
+            local_rr_errors_extra = []
+            local_rr_errors_missed = []
             for index, r_peak in enumerate(self.r_peaks):
                 if r_peak in area:
                     local_rr_intervals.append(self.rr_intervals[index + 1])
-                    if self.rr_artefacts[index + 1] != 0:
-                        local_rr_artefacts.append(self.rr_intervals[index + 1])
+                    if self.rr_errors[index + 1] != 0:
+                        local_rr_errors.append(self.rr_intervals[index + 1])
                     else:
-                        local_rr_artefacts.append(np.nan)
+                        local_rr_errors.append(np.nan)
                     if self.ectopic_intervals[index + 1] != 0:
-                        local_rr_artefacts_ectopic.append(self.rr_intervals[index + 1])
+                        local_rr_errors_ectopic.append(self.rr_intervals[index + 1])
                     else:
-                        local_rr_artefacts_ectopic.append(np.nan)
+                        local_rr_errors_ectopic.append(np.nan)
                     if self.long_short_intervals[index + 1] != 0:
-                        local_rr_artefacts_longshort.append(self.rr_intervals[index + 1])
+                        local_rr_errors_longshort.append(self.rr_intervals[index + 1])
                     else:
-                        local_rr_artefacts_longshort.append(np.nan)
+                        local_rr_errors_longshort.append(np.nan)
                     if self.extra_intervals[index + 1] != 0:
-                        local_rr_artefacts_extra.append(self.rr_intervals[index + 1])
+                        local_rr_errors_extra.append(self.rr_intervals[index + 1])
                     else:
-                        local_rr_artefacts_extra.append(np.nan)
+                        local_rr_errors_extra.append(np.nan)
                     if self.missed_intervals[index + 1] != 0:
-                        local_rr_artefacts_missed.append(self.rr_intervals[index + 1])
+                        local_rr_errors_missed.append(self.rr_intervals[index + 1])
                     else:
-                        local_rr_artefacts_missed.append(np.nan)
+                        local_rr_errors_missed.append(np.nan)
         else:
             local_rr_intervals = self.rr_intervals
-            local_rr_artefacts = []
-            local_rr_artefacts_ectopic = []
-            local_rr_artefacts_longshort = []
-            local_rr_artefacts_extra = []
-            local_rr_artefacts_missed = []
+            local_rr_errors = []
+            local_rr_errors_ectopic = []
+            local_rr_errors_longshort = []
+            local_rr_errors_extra = []
+            local_rr_errors_missed = []
             for index, rr_interval in enumerate(local_rr_intervals):
-                if self.rr_artefacts[index] != 0:
-                    local_rr_artefacts.append(self.rr_intervals[index])
+                if self.rr_errors[index] != 0:
+                    local_rr_errors.append(self.rr_intervals[index])
                 else:
-                    local_rr_artefacts.append(np.nan)
+                    local_rr_errors.append(np.nan)
                 if self.ectopic_intervals[index] != 0:
-                    local_rr_artefacts_ectopic.append(self.rr_intervals[index])
+                    local_rr_errors_ectopic.append(self.rr_intervals[index])
                 else:
-                    local_rr_artefacts_ectopic.append(np.nan)
+                    local_rr_errors_ectopic.append(np.nan)
                 if self.long_short_intervals[index] != 0:
-                    local_rr_artefacts_longshort.append(self.rr_intervals[index])
+                    local_rr_errors_longshort.append(self.rr_intervals[index])
                 else:
-                    local_rr_artefacts_longshort.append(np.nan)
+                    local_rr_errors_longshort.append(np.nan)
                 if self.extra_intervals[index] != 0:
-                    local_rr_artefacts_extra.append(self.rr_intervals[index])
+                    local_rr_errors_extra.append(self.rr_intervals[index])
                 else:
-                    local_rr_artefacts_extra.append(np.nan)
+                    local_rr_errors_extra.append(np.nan)
                 if self.missed_intervals[index] != 0:
-                    local_rr_artefacts_missed.append(self.rr_intervals[index])
+                    local_rr_errors_missed.append(self.rr_intervals[index])
                 else:
-                    local_rr_artefacts_missed.append(np.nan)
+                    local_rr_errors_missed.append(np.nan)
 
         # Arraybildung
         local_rr_intervals = np.array(local_rr_intervals)
-        local_rr_artefacts = np.array(local_rr_artefacts)
+        local_rr_errors = np.array(local_rr_errors)
 
         plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
-        plt.bar(np.arange(len(local_rr_artefacts)), local_rr_artefacts, width=1, align='center', label='RR-Intervall-Artefakte', color='white', edgecolor=self.colours['wine'], linewidth=3)
-        plt.plot(local_rr_artefacts_ectopic, 'x', color=self.colours['red'], linewidth=4, label='Ektopisch', markersize=8)
-        plt.plot(local_rr_artefacts_longshort, 'x', color=self.colours['purple'], linewidth=4, label='Long/Short', markersize=8)
-        plt.plot(local_rr_artefacts_extra, 'x', color=self.colours['grey'], linewidth=4, label='Extra', markersize=8)
-        plt.plot(local_rr_artefacts_missed, 'x', color=self.colours['yellow'], linewidth=4, label='Verfehlt', markersize=8)
+        plt.bar(np.arange(len(local_rr_errors)), local_rr_errors, width=1, align='center', label='RR-Intervall-Artefakte', color='white', edgecolor=self.colours['wine'], linewidth=3)
+        plt.plot(local_rr_errors_ectopic, 'x', color=self.colours['red'], linewidth=4, label='Ektopisch', markersize=8)
+        plt.plot(local_rr_errors_longshort, 'x', color=self.colours['purple'], linewidth=4, label='Long/Short', markersize=8)
+        plt.plot(local_rr_errors_extra, 'x', color=self.colours['grey'], linewidth=4, label='Extra', markersize=8)
+        plt.plot(local_rr_errors_missed, 'x', color=self.colours['yellow'], linewidth=4, label='Verfehlt', markersize=8)
         plt.plot(local_rr_intervals, color=self.colours['blue'], linewidth=1.5, label='RR-Intervall-Folge')
 
         # Plot Settings
@@ -856,7 +861,7 @@ class EcgFreiburg(Ecg):
 
             # Grab Data
             local_rr_intervals = []
-            local_rr_artefacts = []
+            local_rr_errors = []
             for index, r_peak in enumerate(self.r_peaks):
                 if r_peak in area:
                     local_rr_intervals.append(self.rr_intervals[index + 1])
@@ -872,9 +877,9 @@ class EcgFreiburg(Ecg):
         if start_sec_abs is not None and duration_sec_rel is not None:
             plt.ylim(800, 1400)
             plt.xlim(0, len(local_rr_intervals))
-            new_xticks = np.linspace(0, len(local_rr_intervals), num=5)
+            new_xticks = np.linspace(0, len(local_rr_intervals), num=6)
             plt.gca().set_xticks(new_xticks)
-            new_time = [1, 60, 120, 180, 240]
+            new_time = [1, 50, 100, 150, 200, 250]
             plt.gca().set_xticklabels(new_time)
             # plt.axis('off')
         plt.draw()
