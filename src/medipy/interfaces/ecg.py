@@ -321,29 +321,17 @@ class Ecg(metaclass=abc.ABCMeta):
         '''
         This method calculates all time features
         '''
-        # Different window size
-        rr_intervals_240 = rr_intervals[~np.isnan(rr_intervals)]
-        half = len(rr_intervals) / 2
-        rr_pre = int(half - (30000 / self.period_ms))
-        rr_post = int(half + (30000 / self.period_ms))
-        rr_intervals_60 = rr_intervals[rr_pre:rr_post]
-        rr_intervals_60 = rr_intervals_60[~np.isnan(rr_intervals_60)]
-        rr_pre = int(half - (5000 / self.period_ms))
-        rr_post = int(half + (5000 / self.period_ms))
-        rr_intervals_10 = rr_intervals[rr_pre:rr_post]
-        rr_intervals_10 = rr_intervals_10[~np.isnan(rr_intervals_10)]
-
+        
         # For Calculation
-        drr_10 = np.diff(rr_intervals_10)
-        drr_60 = np.diff(rr_intervals_10)
-        hr = np.divide(60000, rr_intervals_240)
+        drr = np.diff(rr_intervals)
+        hr = np.divide(60000, rr_intervals)
 
         # Statistical Features
-        sdnn = np.std(rr_intervals_240, ddof=1)
-        sdsd = np.std(drr_10, ddof=1)
-        rmssd = np.sqrt(np.mean(drr_10 ** 2))
-        nn50 = sum(np.abs(drr_60) > 50)
-        pnn50 = (nn50 / len(rr_intervals_60)) * 100
+        sdnn = np.std(rr_intervals, ddof=1)
+        sdsd = np.std(drr, ddof=1)
+        rmssd = np.sqrt(np.mean(drr ** 2))
+        nn50 = sum(np.abs(drr) > 50)
+        pnn50 = (nn50 / len(rr_intervals)) * 100
 
         # Heartrate Features
         hr_max_min = max(hr)-min(hr)
@@ -363,7 +351,6 @@ class Ecg(metaclass=abc.ABCMeta):
         This method calculates all frequency features
         '''
         # For Calculation
-        rr_intervals = rr_intervals[~np.isnan(rr_intervals)]
         rr_timestamps_cumsum = np.cumsum(rr_intervals) /1000 # in sec damit Hz
         rr_timestamps = rr_timestamps_cumsum - rr_timestamps_cumsum[0]
 
@@ -402,19 +389,13 @@ class Ecg(metaclass=abc.ABCMeta):
         This method calculates all nonlinear features
         '''
         # For Calculation
-        rr_intervals_240 = rr_intervals[~np.isnan(rr_intervals)]
-        half = len(rr_intervals) / 2
-        rr_pre = int(half - (60000 / self.period_ms))
-        rr_post = int(half + (60000 / self.period_ms))
-        rr_intervals_120 = rr_intervals[rr_pre:rr_post]
-        rr_intervals_120 = rr_intervals_120[~np.isnan(rr_intervals_120)]
-        drr_120 = np.diff(rr_intervals_120)
+        drr = np.diff(rr_intervals)
         short = range(4, 16 + 1)
         long = range(17, 64 + 1)
 
         # Poincare Features
-        sd1 = np.sqrt((np.std(drr_120, ddof=1) ** 2) * 0.5)
-        sd2 = np.sqrt(2 * np.std(rr_intervals_120, ddof=1) ** 2 - 0.5 * np.std(drr_120, ddof=1) ** 2)
+        sd1 = np.sqrt((np.std(drr, ddof=1) ** 2) * 0.5)
+        sd2 = np.sqrt(2 * np.std(rr_intervals, ddof=1) ** 2 - 0.5 * np.std(drr, ddof=1) ** 2)
         T = 4 * sd1
         L = 4 * sd2
         csi = sd2 / sd1
@@ -423,8 +404,8 @@ class Ecg(metaclass=abc.ABCMeta):
 
         # DFA Features
         if len(rr_intervals) > 2:
-            df_alpha_1 = nolds.dfa(rr_intervals_240, short, debug_data=False, overlap=False)
-            df_alpha_2 = nolds.dfa(rr_intervals_240, long, debug_data=False, overlap=False)
+            df_alpha_1 = nolds.dfa(rr_intervals, short, debug_data=False, overlap=False)
+            df_alpha_2 = nolds.dfa(rr_intervals, long, debug_data=False, overlap=False)
         else:
             df_alpha_1 = np.nan
             df_alpha_2 = np.nan

@@ -221,9 +221,9 @@ class EcgFreiburg(Ecg):
             rr_errors_window = rr_errors_frame[step - half_window:step + half_window]
             if not self.window_plausibility_check(rr_intervals_window, rr_errors_window, error_level=0.05):
                 continue
-            time_features = self.hrv_features_time(rr_intervals_window)
-            frequency_features = self.hrv_features_frequency(rr_intervals_window)
-            nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window)
+            time_features = self.hrv_features_time(rr_intervals_window[~np.isnan(rr_intervals_window)])
+            frequency_features = self.hrv_features_frequency(rr_intervals_window[~np.isnan(rr_intervals_window)])
+            nonlinear_features = self.hrv_features_nonlinear(rr_intervals_window[~np.isnan(rr_intervals_window)])
             features = {**time_features, **frequency_features, **nonlinear_features}
             for feature in features:
                 self.feature_df.at[sliced_grid[step], feature] = features[feature]
