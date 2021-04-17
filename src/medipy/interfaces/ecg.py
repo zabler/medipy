@@ -341,7 +341,7 @@ class Ecg(metaclass=abc.ABCMeta):
             'SDSD': sdsd,
             'RMSSD': rmssd,
             'NN50': nn50,
-            'pNN50': nn50,
+            'pNN50': pnn50,
             'HR_MAX_MIN': hr_max_min,
         }
         return time_features

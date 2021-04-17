@@ -219,7 +219,7 @@ class EcgFreiburg(Ecg):
         for step in steps:
             rr_intervals_window = rr_intervals_frame[step - half_window:step + half_window]
             rr_errors_window = rr_errors_frame[step - half_window:step + half_window]
-            if not self.window_plausibility_check(rr_intervals_window, rr_errors_window, error_level=0.05):
+            if not self.window_plausibility_check(rr_intervals_window, rr_errors_window, error_level=0.01):
                 continue
             time_features = self.hrv_features_time(rr_intervals_window[~np.isnan(rr_intervals_window)])
             frequency_features = self.hrv_features_frequency(rr_intervals_window[~np.isnan(rr_intervals_window)])
