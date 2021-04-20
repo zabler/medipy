@@ -831,10 +831,10 @@ class EcgFreiburg(Ecg):
 
         plt.bar(np.arange(len(local_rr_intervals)), local_rr_intervals, width=1, align='center', label='RR-Intervalle', color='white', edgecolor='black', linewidth=1.5)
         plt.bar(np.arange(len(local_rr_errors)), local_rr_errors, width=1, align='center', label='RR-Intervall-Artefakte', color='white', edgecolor=self.colours['wine'], linewidth=3)
-        plt.plot(local_rr_errors_ectopic, 'x', color=self.colours['red'], linewidth=4, label='Ektopisch', markersize=8)
-        plt.plot(local_rr_errors_longshort, 'x', color=self.colours['purple'], linewidth=4, label='Long/Short', markersize=8)
-        plt.plot(local_rr_errors_extra, 'x', color=self.colours['grey'], linewidth=4, label='Extra', markersize=8)
-        plt.plot(local_rr_errors_missed, 'x', color=self.colours['yellow'], linewidth=4, label='Verfehlt', markersize=8)
+        plt.plot(local_rr_errors_ectopic, 'x', color=self.colours['wine'], linewidth=6, label='Ektop', markersize=10)
+        plt.plot(local_rr_errors_longshort, 'x', color=self.colours['blue'], linewidth=6, label='Long/Short', markersize=10)
+        plt.plot(local_rr_errors_extra, 'x', color=self.colours['grey'], linewidth=6, label='Extra', markersize=10)
+        plt.plot(local_rr_errors_missed, 'x', color=self.colours['yellow'], linewidth=6, label='Verfehlt', markersize=10)
         plt.plot(local_rr_intervals, color=self.colours['blue'], linewidth=1.5, label='RR-Intervall-Folge')
 
         # Plot Settings
