@@ -17,7 +17,7 @@ class EcgFreiburg(Ecg):
     '''
     This is the ecg freiburg realization class
     '''
-
+    
     def __init__(self):
         super().__init__()
         self.tags = []
@@ -423,7 +423,8 @@ class EcgFreiburg(Ecg):
             local_rr_errors = []
             for index, r_peak in enumerate(self.r_peaks):
                 if r_peak in area:
-                    local_rr_intervals.append(self.rr_intervals[index + 1])
+                    local_rr_intervals.append(self.rr_intervals[index])
+            local_rr_intervals.pop(-1)
         else:
             local_rr_intervals = self.rr_intervals
 
@@ -436,7 +437,9 @@ class EcgFreiburg(Ecg):
         plt.xlabel('Intervall [k]')
         plt.ylabel('Intervalllänge [ms]')
         if start_sec_abs is not None and duration_sec_rel is not None:
-            new_time = [0, 1, 2, 3, 4, 5, 6, 7, 8] # Wegen 9 R-Zacken
+            new_locs = [0, 1, 2, 3, 4, 5, 6, 7] # Wegen 9 R-Zacken, 8 RR Intervalle
+            plt.gca().set_xticks(new_locs)
+            new_time = [1, 2, 3, 4, 5, 6, 7, 8]
             plt.gca().set_xticklabels(new_time)
             plt.ylim(0, 1400)
         plt.draw()
@@ -461,7 +464,8 @@ class EcgFreiburg(Ecg):
             local_rr_errors = []
             for index, r_peak in enumerate(self.r_peaks):
                 if r_peak in area:
-                    local_rr_intervals.append(self.rr_intervals[index + 1])
+                    local_rr_intervals.append(self.rr_intervals[index])
+            local_rr_intervals.pop(-1)
         else:
             local_rr_intervals = self.rr_intervals
 
@@ -775,27 +779,30 @@ class EcgFreiburg(Ecg):
             local_rr_errors_missed = []
             for index, r_peak in enumerate(self.r_peaks):
                 if r_peak in area:
-                    local_rr_intervals.append(self.rr_intervals[index + 1])
-                    if self.rr_errors[index + 1] != 0:
-                        local_rr_errors.append(self.rr_intervals[index + 1])
+                    if self.r_peaks[index+1] not in area:
+                        break
+                    local_rr_intervals.append(self.rr_intervals[index])
+                    if self.rr_errors[index] != 0:
+                        local_rr_errors.append(self.rr_intervals[index])
                     else:
                         local_rr_errors.append(np.nan)
-                    if self.ectopic_intervals[index + 1] != 0:
-                        local_rr_errors_ectopic.append(self.rr_intervals[index + 1])
+                    if self.ectopic_intervals[index] != 0:
+                        local_rr_errors_ectopic.append(self.rr_intervals[index])
                     else:
                         local_rr_errors_ectopic.append(np.nan)
-                    if self.long_short_intervals[index + 1] != 0:
-                        local_rr_errors_longshort.append(self.rr_intervals[index + 1])
+                    if self.long_short_intervals[index] != 0:
+                        local_rr_errors_longshort.append(self.rr_intervals[index])
                     else:
                         local_rr_errors_longshort.append(np.nan)
-                    if self.extra_intervals[index + 1] != 0:
-                        local_rr_errors_extra.append(self.rr_intervals[index + 1])
+                    if self.extra_intervals[index] != 0:
+                        local_rr_errors_extra.append(self.rr_intervals[index])
                     else:
                         local_rr_errors_extra.append(np.nan)
-                    if self.missed_intervals[index + 1] != 0:
-                        local_rr_errors_missed.append(self.rr_intervals[index + 1])
+                    if self.missed_intervals[index] != 0:
+                        local_rr_errors_missed.append(self.rr_intervals[index])
                     else:
                         local_rr_errors_missed.append(np.nan)
+            plt.ylim(0, 1400)
         else:
             local_rr_intervals = self.rr_intervals
             local_rr_errors = []
@@ -864,7 +871,8 @@ class EcgFreiburg(Ecg):
             local_rr_errors = []
             for index, r_peak in enumerate(self.r_peaks):
                 if r_peak in area:
-                    local_rr_intervals.append(self.rr_intervals[index + 1])
+                    local_rr_intervals.append(self.rr_intervals[index])
+            local_rr_intervals.pop(-1)
             plt.plot(local_rr_intervals, color='black', linewidth=1.5, label='NN-Intervall-Folge')
         else:
             local_rr_intervals = self.rr_intervals
