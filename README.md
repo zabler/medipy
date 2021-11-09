@@ -1,4 +1,4 @@
-# Medipy
+# medipy
 Data Analysis Package for biosignals written in Python
 
 The package contains different processing algorithms for:
