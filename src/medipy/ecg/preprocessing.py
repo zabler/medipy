@@ -1,7 +1,7 @@
 '''
 preprocessing.py
 '''
-import scipy as sc
+import scipy.signal as sc
 import numpy as np
 
 
@@ -17,7 +17,7 @@ def hamilton(samples, sample_rate):
 
     # Akusaler 5-Point-Differentiator nach [Pan1985]
     b = [1, 2, 0, -2, -1]
-    b = [x * (1 / 8) * self.sample_rate for x in b]
+    b = [x * (1 / 8) * sample_rate for x in b]
     a = [1]
     samples_diff = sc.filtfilt(b, a, samples_filtered)
 
