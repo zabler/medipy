@@ -3,6 +3,24 @@ r_peak_detection.py
 '''
 
 import numpy as np
+from scipy import signal
+import peakutils as pu
+
+
+def pu_peakfinder(samples):
+    '''
+    Function for detecting R Peaks from scipy package, return time values of rpeaks
+    '''
+    r_peaks = pu.indexes(samples, thres=0.6, min_dist=350)
+    return r_peaks
+
+
+def scipy_peakfinder(samples):
+    '''
+    Function for detecting R Peaks from scipy package, return time values of rpeaks
+    '''
+    r_peaks = signal.find_peaks(samples, height=0.7, distance=100)[0]
+    return r_peaks
 
 
 def hamilton(samples, preprocessed, sample_rate, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine_ms=24):
