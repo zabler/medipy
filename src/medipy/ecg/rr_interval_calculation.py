@@ -4,7 +4,7 @@ rr_interval_calculation.py
 import math
 
 
-def rr_interval_calculator(r_peaks):
+def calculator(r_peaks):
     '''
     This method calculates all rr intervals of a given r_peak list
     '''
