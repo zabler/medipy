@@ -7,6 +7,23 @@ import nolds
 from astropy.timeseries import LombScargle
 
 
+def window_plausibility_check(rr_intervals, rr_errors, time=5, error_level=0.01):
+    '''
+    This method checks weather the window has to many errors or not
+    '''
+    # Security Mechanism
+    if len(rr_intervals) < 0:
+        self.unplausible_window += 1
+        return False
+    else:
+        if np.nansum(rr_errors_window) > error_level * len(rr_intervals):
+            self.unplausible_window += 1
+            return False
+        else:
+            self.plausible_window += 1
+            return True
+
+
 def hrv_features_time(rr_intervals):
     '''
     This method calculates all time features
