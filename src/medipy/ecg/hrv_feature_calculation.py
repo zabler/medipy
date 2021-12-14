@@ -112,11 +112,13 @@ def hrv_features_nonlinear(rr_intervals):
     cvi = np.log10(l_feature * t_feature)
 
     # DFA Features
-    if len(rr_intervals) > 2:
-        df_alpha_1 = nolds.dfa(rr_intervals, short, debug_data=False, overlap=False)
-        df_alpha_2 = nolds.dfa(rr_intervals, long, debug_data=False, overlap=False)
+    if len(rr_intervals) > 17:
+        df_alpha_1 = nolds.dfa(rr_intervals, nvals=short, debug_data=False, overlap=False)
     else:
         df_alpha_1 = np.nan
+    if len(rr_intervals) > 65:
+        df_alpha_2 = nolds.dfa(rr_intervals, nvals=long, debug_data=False, overlap=False)
+    else:
         df_alpha_2 = np.nan
 
     nonlinear_features = {
