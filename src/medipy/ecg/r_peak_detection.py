@@ -23,7 +23,7 @@ def scipy_peakfinder(samples):
     return r_peaks
 
 
-def hamilton(samples, preprocessed, sample_rate, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine_ms=24):
+def hamilton(samples, preprocessed, sample_rate, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine_ms=24, adapt_to_ms=False):
     '''
     This method by hamilton detects all r-peaks of an ecg signal
     '''
@@ -129,4 +129,7 @@ def hamilton(samples, preprocessed, sample_rate, least_distance=0.2, th_coeffici
         qrs_peaks = refined_peaks
 
     #  R Peaks an Grid anpassen
-    return [qrs_peak * period_ms for qrs_peak in qrs_peaks]
+    if adapt_to_ms is not False:
+        return [qrs_peak * period_ms for qrs_peak in qrs_peaks]
+    else:
+        return qrs_peaks
