@@ -36,9 +36,6 @@ def srinivasan(samples, sample_rate):
         # ax4 = plt.subplot(144)
         # ax4.plot(cD1)
 
-        # USING cA3 vs Thresholding & Wavelet Reconstruction
-
-        N = len(samples_window_norm)
         # Soft Thressholding / True Denoising
         N = len(samples_window_norm)
         t_cD1 = np.divide(np.median(abs(cD1)) * np.sqrt(2 * np.log(len(cD1))), 0.6745)
@@ -47,8 +44,13 @@ def srinivasan(samples, sample_rate):
         cD2_thresh = pywt.threshold(cD2, t_cD2, mode='soft')
         t_cD3 = np.divide(np.median(abs(cD3)) * np.sqrt(2 * np.log(len(cD3))), 0.6745)
         cD3_thresh = pywt.threshold(cD3, t_cD3, mode='soft')
+        t_cA3 = np.divide(np.median(abs(cA3)) * np.sqrt(2 * np.log(len(cA3))), 0.6745)
+        cA3_thresh = pywt.threshold(cA3, t_cA3, mode='soft')
 
-        #cA3_tresh = pywt.threshold(cA3, tresh_val, mode=mode_val)
+        # cD1_thresh = pywt.threshold(cD1, 1.2, mode='hard')
+        # cD2_thresh = pywt.threshold(cD2, 1.2, mode='hard')
+        # cD3_thresh = pywt.threshold(cD3, 1.2, mode='hard')
+        # cA3_tresh = pywt.threshold(cA3, 1.2, mode='hard')
         # plt.figure()
         # ax1 = plt.subplot(141)
         # ax1.plot(cA3)
