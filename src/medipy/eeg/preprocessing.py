@@ -1,7 +1,6 @@
 '''
 preprocessing.py
 '''
-from distutils.log import log
 import scipy.signal as sc
 import numpy as np
 import pywt
@@ -19,8 +18,7 @@ def srinivasan(samples, sample_rate):
     for i in range(0, len(samples), sample_rate):
         samples_window = samples[i:i + sample_rate]
 
-        # Normalize? by what ? mean? energy?
-        # Normalisierung BETRAG hilfreich?
+        # Normalize? by what ? mean? energy? 0 zu 1, -1 zu 1  BETRAG hilfreich?
         samples_window_norm = np.divide(samples_window - np.min(samples_window), (np.max(samples_window) - np.min(samples_window)))
         # plt.figure()
         # plt.plot(samples_window_norm)
@@ -76,7 +74,8 @@ def srinivasan(samples, sample_rate):
                 samples_filtered_tk.append((val * val) - (samples_denoised[index - 1] * samples_denoised[index + 1]))
 
         samples_filtered_tk.insert(0, samples_filtered_tk[0])
-        samples_filtered_tk.append(samples_filtered_tk[-1])
+        if not (sample_rate % 2):  # Wenn nicht halbierbar # Bestenfalls, wenn Sample rate nicht dazu führt das Signal wieder die gleiche Lönge hat
+            samples_filtered_tk.append(samples_filtered_tk[-1])
         # samples_filtered_tk pos 0 und -1 setzen
         # plt.figure()
         # plt.plot(samples_filtered_tk)

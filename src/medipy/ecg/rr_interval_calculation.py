@@ -1,5 +1,5 @@
 '''
-rr_interval_calculation.py
+rr_interval_error_correction.py
 '''
 import math
 
