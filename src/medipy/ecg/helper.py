@@ -1,10 +1,44 @@
 '''
-hrv_feature_calcualtion.py
+helper.py
 '''
-
+import math
+import numpy as np
+from scipy import signal
+import peakutils as pu
 import numpy as np
 import nolds
 from astropy.timeseries import LombScargle
+
+
+def rr_calculator(r_peaks, sample_rate=None):
+    '''
+    This method calculates all rr intervals of a given r_peak list
+    '''
+    period_ms = int((1 / sample_rate) * 1000)
+    rr_intervals = []
+    for k in range(1, len(r_peaks)):
+        rr_intervals.append(math.ceil(r_peaks[k] - r_peaks[k - 1]))
+    # an Grid anpassen
+    if sample_rate is not None:
+        return [rr_interval * period_ms for rr_interval in rr_intervals]
+    else:
+        return rr_intervals
+
+
+def pu_peakfinder(samples):
+    '''
+    Function for detecting R Peaks from scipy package, return time values of rpeaks
+    '''
+    r_peaks = pu.indexes(samples, thres=0.6, min_dist=350)
+    return r_peaks
+
+
+def scipy_peakfinder(samples):
+    '''
+    Function for detecting R Peaks from scipy package, return time values of rpeaks
+    '''
+    r_peaks = signal.find_peaks(samples, height=0.7, distance=100)[0]
+    return r_peaks
 
 
 def window_plausibility_check(rr_intervals, rr_errors, time=5, error_level=0.01):

@@ -1,13 +1,16 @@
 '''
-preprocessing.py
+srinivasan.py
 '''
 import scipy.signal as sc
+import math
 import numpy as np
 import pywt
 from matplotlib import pyplot as plt
 
+# Class srinivasan?
 
-def srinivasan(samples, sample_rate):
+
+def preprocessing(samples, sample_rate):
     '''
     This method by srinivasan2015 prepares an eeg signal for r-peak detection using (1) Wavelet Decomposition and (2) TK Energy Operator
     '''
@@ -87,3 +90,39 @@ def srinivasan(samples, sample_rate):
         # Extract R peaks here ?
 
     return samples_filtered
+
+
+def r_peak_detection(eeg_preprocessed, sample_rate):
+    '''
+    This method by srinivasan detects r_peaks of an processed eeg signal
+    '''
+    # Initiate Return Value
+    r_peaks = []
+
+    # Extraction over epoch of 1 sec
+    for i in range(0, len(eeg_preprocessed), sample_rate):
+
+        samples_window = eeg_preprocessed[i:i + sample_rate]
+        t_val = max(samples_window) * 0.5
+
+        # True R Peak Detection
+        for ind, val in enumerate(samples_window):
+            if val > t_val:
+                r_peaks.append(ind + i)  # i equals the global pos
+
+    return r_peaks
+
+
+def rr_interval_error_correction(rr_with_nans, sample_rate):
+    '''
+    This method by srinivasan detects wrong rr intervals and removes them from the list
+    '''
+    rr_corrected = rr_with_nans
+    for i in range(0, len(rr_with_nans), sample_rate):
+        rr_window = rr_with_nans[i:i + sample_rate]
+        mean_rr = np.nanmean(rr_window)
+        for ind, rr_val in enumerate(rr_window):
+            if not np.isnan(rr_val):
+                if (rr_val < 0.7 * mean_rr) or (rr_val > 1.5 * mean_rr):
+                    rr_corrected[ind + i] = np.NaN
+    return rr_corrected

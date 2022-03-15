@@ -1,12 +1,12 @@
 '''
-rr_interval_error_detection
+kubios.py
 '''
 
 import math
 import numpy as np
 
 
-def kubios(rr_intervals_list):
+def rr_interval_error_detection(rr_intervals_list):
     '''
     This method detects errors of a given rr interval list with an modified version of Lipponen and Tarvainen (Kubios) algorithm
     '''

@@ -1,29 +1,41 @@
 '''
-r_peak_detection.py
+hamilton.py
 '''
-
+import scipy.signal as sc
 import numpy as np
-from scipy import signal
-import peakutils as pu
+
+# Class with main func?
 
 
-def pu_peakfinder(samples):
+def preprocessing(samples, sample_rate):
     '''
-    Function for detecting R Peaks from scipy package, return time values of rpeaks
+    This method preprocesses a ecg signal for hamilton r peak detection algorithm
     '''
-    r_peaks = pu.indexes(samples, thres=0.6, min_dist=350)
-    return r_peaks
+    # Akausaler Bandpass Filter nach [Sedghamiz2014]
+    f1 = 5 / sample_rate
+    f2 = 15 / sample_rate
+    b, a = sc.butter(1, [f1 * 2, f2 * 2], btype='bandpass')
+    samples_filtered = sc.filtfilt(b, a, samples)
+
+    # Akusaler 5-Point-Differentiator nach [Pan1985]
+    b = [1, 2, 0, -2, -1]
+    b = [x * (1 / 8) * sample_rate for x in b]
+    a = [1]
+    samples_diff = sc.filtfilt(b, a, samples_filtered)
+
+    # Betragsbildung (Rectifier)
+    samples_rect = abs(samples_diff)
+
+    # Akausaler ungerader 84ms Mittelwertfilter
+    b = np.ones(int(0.084 * sample_rate))  # Filterbreite 21 Samples, damit ungerade
+    b = b / int(0.084 * sample_rate)
+    a = [1]
+    samples_ma = sc.filtfilt(b, a, samples_rect)
+
+    return samples_ma
 
 
-def scipy_peakfinder(samples):
-    '''
-    Function for detecting R Peaks from scipy package, return time values of rpeaks
-    '''
-    r_peaks = signal.find_peaks(samples, height=0.7, distance=100)[0]
-    return r_peaks
-
-
-def hamilton(samples, preprocessed, sample_rate, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine_ms=24, adapt_to_ms=False):
+def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine_ms=24, adapt_to_ms=False):
     '''
     This method by hamilton detects all r-peaks of an ecg signal
     '''
