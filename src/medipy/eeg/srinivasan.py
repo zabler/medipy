@@ -40,15 +40,16 @@ def preprocessing(samples, sample_rate):
         # ax4.plot(cD1)
 
         # Soft Thressholding / True Denoising
+        thresh_mode = 'hard'
         N = len(samples_window_norm)
         t_cD1 = np.divide(np.median(abs(cD1)) * np.sqrt(2 * np.log(len(cD1))), 0.6745)
-        cD1_thresh = pywt.threshold(cD1, t_cD1, mode='soft')
+        cD1_thresh = pywt.threshold(cD1, t_cD1, mode=thresh_mode)
         t_cD2 = np.divide(np.median(abs(cD2)) * np.sqrt(2 * np.log(len(cD2))), 0.6745)
-        cD2_thresh = pywt.threshold(cD2, t_cD2, mode='soft')
+        cD2_thresh = pywt.threshold(cD2, t_cD2, mode=thresh_mode)
         t_cD3 = np.divide(np.median(abs(cD3)) * np.sqrt(2 * np.log(len(cD3))), 0.6745)
-        cD3_thresh = pywt.threshold(cD3, t_cD3, mode='soft')
+        cD3_thresh = pywt.threshold(cD3, t_cD3, mode=thresh_mode)
         t_cA3 = np.divide(np.median(abs(cA3)) * np.sqrt(2 * np.log(len(cA3))), 0.6745)
-        cA3_thresh = pywt.threshold(cA3, t_cA3, mode='soft')
+        cA3_thresh = pywt.threshold(cA3, t_cA3, mode=thresh_mode)
 
         # cD1_thresh = pywt.threshold(cD1, 1.2, mode='hard')
         # cD2_thresh = pywt.threshold(cD2, 1.2, mode='hard')
@@ -103,7 +104,7 @@ def r_peak_detection(eeg_preprocessed, sample_rate):
     for i in range(0, len(eeg_preprocessed), sample_rate):
 
         samples_window = eeg_preprocessed[i:i + sample_rate]
-        t_val = max(samples_window) * 0.5
+        t_val = max(samples_window) * 0.8  # 0.5 Original
 
         # True R Peak Detection
         for ind, val in enumerate(samples_window):
