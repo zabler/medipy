@@ -1,8 +1,3 @@
 # medipy
-Data Analysis Package for biosignals written in Python
-
-The package contains different processing algorithms for:
-- ECG
-- EEG
-- ACC
-- GYRO
+Algorithm Package for Medical Data Analysis written in Python
+The package contains processing algorithms for different signal types like ECG, EEG, ACC, EMG, GYRO, …
