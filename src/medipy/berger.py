@@ -15,6 +15,7 @@ Vector with equidistant, resampled and interpolated RR interval values
 
 Recommendations
 Use a resample frequency which is a multiple of the origin sample frequency, so the resulting interpolated RR array is easy to contenate
+First R-peak of signal equals the first value of returend interpolated RR List
 
 References
 [1] R. D. Berger, S. Akselrod, D. Gordon and R. J. Cohen, "An Efficient Algorithm for Spectral Analysis of Heart Rate Variability," in IEEE Transactions on Biomedical Engineering, vol. BME-33, no. 9, pp. 900-904, Sept. 1986, doi: 10.1109/TBME.1986.325789.
@@ -27,32 +28,57 @@ import numpy as np
 
 def resampling(rr, resample_fs=4):
     # Init Resampling
+    rr = list(rr)
     period_ms = int(1000 / resample_fs)
     r_peaks = np.cumsum(rr)
     r_peaks = np.insert(r_peaks, 0, 0)
-    grid = np.arange(0, r_peaks[-1], period_ms)  # Not sure if correct
-    rr_interpolated = []  # change to vector with know length
+    grid = np.arange(0, r_peaks[-1], period_ms)
+    rr_interpolated = np.empty(len(grid))
     rr.append(rr[-1])
-    rr_current = 0
-    # rr_interpolated = np.empty(int(np.divide(np.sum(rr), period_ms)))  # Vector length = Number of Vals = TotalTime(sum(rr)) * resample_fs  = TotalTime(sum(rr)) / period_ms
+    rr_current = rr[0]
 
-    # Iterating over grid, starting with first R-peak, ends with or before oder last R-Peak, depending on origin fs
-    for val in grid:  # grid[1:]
-        r_peaks_local = np.where(np.logical_and(r_peaks >= val - period_ms, r_peaks < val + period_ms))[0]
+    # First value on t_0 to RR_0
+    rr_interpolated[0] = rr[0]
+
+    # Iterating over grid, starting with t_1 after first R-peak(t_0), ends with or before oder last R-Peak, depending on origin fs
+    for ind, val in enumerate(grid[1:]):  #
+        r_peaks_local = np.where(np.logical_and(r_peaks > (val - period_ms), r_peaks <= (val + period_ms)))[0]
         if r_peaks_local.size == 0:
-            rri_int = rr[rr_current]  # CHANGE? # Look for closest r-peaks with quick algo?
+            rri_int = rr_current
         else:
-            rr_vals_local = rr[int(min(r_peaks_local)):int(max(r_peaks_local)) + 2]  # if more than one r-peak, mid RR-values weighted 1 by formular automatically
+            rr_vals_local = rr[int(min(r_peaks_local)) - 1:int(max(r_peaks_local)) + 1]  # if more than one r-peak, mid RR-values weighted 1 by formular automatically
             rri_int = int(np.divide(2 * period_ms, (np.divide(r_peaks[r_peaks_local[0]] - (val - period_ms), rr_vals_local[0]) +
                                                     np.divide(val + period_ms - r_peaks[r_peaks_local[-1]], rr_vals_local[-1]))))
-            rr_current += 1  # not correct ?! at least doest not work
-        rr_interpolated.append(rri_int)
-
+            rr_current = rr_vals_local[-1]
+        rr_interpolated[ind + 1] = rri_int
     return rr_interpolated
 
+
+# print(rr_interpolated[0:20])
+# print(rr_interpolated[-20:-1])
+# print(r_peaks_local)
+# print(int(min(r_peaks_local)))
+# print(int(max(r_peaks_local)) + 2)
+# print('r_peak_first')
+# print(r_peaks_local[0])
+# print('tr1')
+# print(r_peaks[r_peaks_local[0]])
+# print('timedelta1')
+# print(r_peaks[r_peaks_local[0]] - (val - period_ms))
+# print('rr_val_before')
+# print(rr_vals_local[0])
+# print('r_peak_last')
+# print(r_peaks_local[0])
+# print('tr2')
+# print(r_peaks[r_peaks_local[-1]])
+# print('timedelta2')
+# print(val + period_ms - r_peaks[r_peaks_local[-1]])
+# print('rr_val_after')
+# print(rr_vals_local[-1])
 # Mögliche Test
 # Is fs vielfaches von rfs?
 # Wenn nein quit 7 oder Warnung # Modulo Operator
 # Evtl. als function implementieren
 # rri_int = _calc_rri_int(val, period_ms, list(r_peaks_local), rr_vals_local)
 # def _calc_rri_int(t_0, delta_t, local_r_peaks, local_rr_vals):
+# rr_interpolated = np.empty(int(np.divide(np.sum(rr), period_ms)))  # Vector length = Number of Vals = TotalTime(sum(rr)) * resample_fs  = TotalTime(sum(rr)) / period_ms
