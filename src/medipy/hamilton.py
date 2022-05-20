@@ -55,13 +55,11 @@ def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_
 
     # Hamilton Algorithmus
     for counter in range(len(preprocessed)):
-
         # Peakdetektion
         if counter > 3 and counter < len(preprocessed) - 5:
             if preprocessed[counter - 1] < preprocessed[counter] and preprocessed[counter + 1] < preprocessed[counter]:
                 peak = counter
                 peaks.append(counter)
-
                 # R4 & R1
                 if preprocessed[counter] > threshold and (peak - qrs_peaks[-1]) > least_distance * sample_rate:
                     slope_neg_peak = np.diff(preprocessed[peak:peak + 2])  # 2 Samples = 8ms ANTIKAUSAL
@@ -89,7 +87,6 @@ def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_
                         if len(safe_peaks) > 8:
                             safe_peaks.pop(0)
                         safe_peaks_average = np.mean(safe_peaks)
-
                         # R5
                         if rr_intervals_average != 0.0:
                             if qrs_peaks[-1] - qrs_peaks[-2] > 1.5 * rr_intervals_average:  # Letztes RR Intervall größer als 1.5 mal RR Interval Average
@@ -102,7 +99,6 @@ def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_
                                             safe_peaks.pop(0)
                                         safe_peaks_average = np.mean(safe_peaks)  # True Peak Average 'AUCH Noise peaks akutalisieren!
                                         break
-
                         # R5
                         if len(qrs_peaks) > 2:
                             rr_intervals.append(qrs_peaks[-1] - qrs_peaks[-2])
@@ -121,7 +117,6 @@ def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_
                     if len(noisy_peaks) > 8:
                         noisy_peaks.pop(0)
                     noisy_peaks_average = np.mean(noisy_peaks)  # Noisy Peak Average
-
                 # Adjusting Threshholds
                 threshold = noisy_peaks_average + th_coefficient * (safe_peaks_average - noisy_peaks_average)  # Noisy Peaks Average + 0.45 Parameter * (True Peaks Average - Noisy Peaks Average)
                 counter += 1

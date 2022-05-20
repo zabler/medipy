@@ -52,33 +52,3 @@ def resampling(rr, resample_fs=4):
             rr_current = rr_vals_local[-1]
         rr_interpolated[ind + 1] = rri_int
     return rr_interpolated
-
-
-# print(rr_interpolated[0:20])
-# print(rr_interpolated[-20:-1])
-# print(r_peaks_local)
-# print(int(min(r_peaks_local)))
-# print(int(max(r_peaks_local)) + 2)
-# print('r_peak_first')
-# print(r_peaks_local[0])
-# print('tr1')
-# print(r_peaks[r_peaks_local[0]])
-# print('timedelta1')
-# print(r_peaks[r_peaks_local[0]] - (val - period_ms))
-# print('rr_val_before')
-# print(rr_vals_local[0])
-# print('r_peak_last')
-# print(r_peaks_local[0])
-# print('tr2')
-# print(r_peaks[r_peaks_local[-1]])
-# print('timedelta2')
-# print(val + period_ms - r_peaks[r_peaks_local[-1]])
-# print('rr_val_after')
-# print(rr_vals_local[-1])
-# Mögliche Test
-# Is fs vielfaches von rfs?
-# Wenn nein quit 7 oder Warnung # Modulo Operator
-# Evtl. als function implementieren
-# rri_int = _calc_rri_int(val, period_ms, list(r_peaks_local), rr_vals_local)
-# def _calc_rri_int(t_0, delta_t, local_r_peaks, local_rr_vals):
-# rr_interpolated = np.empty(int(np.divide(np.sum(rr), period_ms)))  # Vector length = Number of Vals = TotalTime(sum(rr)) * resample_fs  = TotalTime(sum(rr)) / period_ms

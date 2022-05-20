@@ -6,3 +6,4 @@ from . import kubios
 from . import srinivasan
 from . import berger
 from . import sarkar
+from . import lazaro
