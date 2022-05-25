@@ -29,7 +29,7 @@ import numpy as np
 
 def slope_extraction(ecg, n_peaks, q_n_peaks, s_n_peaks, resample_frequency):
 
-    # TO-Do
+    # TO-DO
     # Generalize with resample frequency at LSQ: np.linalg.lstsq(A, y, rcond=None)[0] to always use 8ms windows accoringt to lazaro or romero 15ms
     # Not neceassary for current approach because of 250Hz sample rate which makes 4ms windows
     # Implement 2nd search
@@ -56,17 +56,17 @@ def slope_extraction(ecg, n_peaks, q_n_peaks, s_n_peaks, resample_frequency):
         else:
             s_n = int(s_n_peaks[ind])
 
+        # Steigung des Least Square Fit +/- 4ms um Slope_Point (=+/- Sample bei 250Hz) (1 Sample entspricht 4ms, theoretisch reicht np. diff max aus; jetzt aber LS um 3 Werte;
+        linear_matrix = np.vstack([[0, 1, 2], [1, 1, 1]]).T
+
         up_slope_point = np.argmax(np.diff(ecg[q_n:n_peak]))
-        up_slope = np.mean(np.diff(ecg[q_n + up_slope_point - 1:q_n + up_slope_point + 1]))
-        # up_slope, _ = np.linalg.lstsq(np.ones(len(ecg[q_n + up_slope_point - 1:q_n + up_slope_point + 1])), ecg[q_n + up_slope_point - 1:q_n + up_slope_point + 1], rcond=None)[0]
+        up_slope, _ = np.linalg.lstsq(linear_matrix, ecg[q_n + up_slope_point - 1:q_n + up_slope_point + 2], rcond=None)[0]
+        up_slope = np.max(np.diff(ecg[q_n:n_peak]))
         up_slope_vector[ind] = up_slope
 
         down_slope_point = np.argmax(np.diff(ecg[n_peak:s_n]))
-        down_slope = np.mean(np.diff(ecg[n_peak + down_slope_point - 1:n_peak + down_slope_point + 1]))
-        # down_slope, _ = np.linalg.lstsq(np.ones(len(ecg[n_peak +
-        # down_slope_point - 1:n_peak + down_slope_point + 1])), ecg[n_peak +
-        # down_slope_point - 1:n_peak + down_slope_point + 1], rcond=None)[0]  #
-        # Should be 3 vals = 8ms
+        down_slope, _ = np.linalg.lstsq(linear_matrix, ecg[n_peak + down_slope_point - 1:n_peak + down_slope_point + 2], rcond=None)[0]
+        down_slope = np.max(np.diff(ecg[n_peak:s_n]))
         down_slope_vector[ind] = down_slope
 
         peak_angle = np.arctan(np.divide((up_slope - down_slope), 0.4 * (6.25 + (up_slope * down_slope))))
