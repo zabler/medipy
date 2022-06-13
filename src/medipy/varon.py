@@ -31,19 +31,21 @@ def hear_rate_decomposition(hrv, edr, frequency):
     # Create the matrix v_spann = [X0 , X1 , . . . , XM]
     v_spann = []
     for delays in range(model_order):
-        x_vector = edr[delays:len(edr) - model_order + delays]
+        x_vector = np.array(edr[delays:(delays + len(edr) - model_order)])
+        #x_vector = np.insert(x_vector, 0, np.zeros(delays))
+        #x_vector = np.insert(x_vector, -1, np.zeros(model_order - delays))
         v_spann.append(x_vector)
-    v_spann = np.array(v_spann)
+    v_spann = np.array(v_spann).T
 
     # Compute the projection matrix P using P = V (V.T V)−1 V.T
-    p0_matrix = np.linalg.inv(np.matmul(v_spann, v_spann.T))
+    p0_matrix = np.linalg.inv(np.matmul(v_spann.T, v_spann))
     p1_matrix = np.matmul(v_spann, p0_matrix)
     p2_matrix = np.matmul(p1_matrix, v_spann.T)
 
     # Calculate the respiratory component Yx = PY
-    hrv_x = np.matmul(p2_matrix, hrv)
+    hrv_x = np.matmul(p2_matrix, hrv[model_order - 1:-1])
 
     # Calculate the residual component Yy = Y − Yx
-    hrv_y = hrv - hrv_x
+    hrv_y = hrv[model_order - 1:-1] - hrv_x
 
-    return hrv_y, hrv_y
+    return (hrv_x, hrv_y)
