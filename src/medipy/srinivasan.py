@@ -88,8 +88,6 @@ def preprocessing(samples, sample_rate):
 
         samples_filtered += samples_filtered_tk  # samples_filtered += list(cA3)
 
-        # Extract R peaks here ?
-
     return samples_filtered
 
 
@@ -104,7 +102,7 @@ def r_peak_detection(eeg_preprocessed, sample_rate):
     for i in range(0, len(eeg_preprocessed), sample_rate):
 
         samples_window = eeg_preprocessed[i:i + sample_rate]
-        t_val = max(samples_window) * 0.8  # 0.5 Original
+        t_val = max(samples_window) * 0.90  # 0.5 Original
 
         # True R Peak Detection
         for ind, val in enumerate(samples_window):
@@ -119,8 +117,8 @@ def rr_interval_error_correction(rr_with_nans, sample_rate):
     This method by srinivasan detects wrong rr intervals and removes them from the list
     '''
     rr_corrected = rr_with_nans
-    for i in range(0, len(rr_with_nans), sample_rate):
-        rr_window = rr_with_nans[i:i + sample_rate]
+    for i in range(0, len(rr_with_nans), sample_rate * 60):  # damit auf eine Minute gewindowed ohne Overlapp
+        rr_window = rr_with_nans[i:i + sample_rate * 60]
         mean_rr = np.nanmean(rr_window)
         for ind, rr_val in enumerate(rr_window):
             if not np.isnan(rr_val):
