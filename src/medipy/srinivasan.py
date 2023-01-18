@@ -102,7 +102,7 @@ def r_peak_detection(eeg_preprocessed, sample_rate):
     for i in range(0, len(eeg_preprocessed), sample_rate):
 
         samples_window = eeg_preprocessed[i:i + sample_rate]
-        t_val = max(samples_window) * 0.90  # 0.5 Original
+        t_val = max(samples_window) * 0.9  # 0.9 worked best so far # 0.5 Original
 
         # True R Peak Detection
         for ind, val in enumerate(samples_window):
