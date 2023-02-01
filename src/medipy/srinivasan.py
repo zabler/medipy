@@ -6,7 +6,7 @@ import math
 import numpy as np
 import pywt
 from matplotlib import pyplot as plt
-from .extlib.modwtpy.modwt import modwt
+from .extlib.modwtpy import modwt
 
 # Class srinivasan?
 
