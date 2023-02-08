@@ -40,7 +40,6 @@ def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_
     This method by hamilton detects all r-peaks of an ecg signal
     '''
     # Initiation
-    period_ms = int((1 / sample_rate) * 1000)
     noisy_peaks = []
     noisy_peaks_average = 0.0
     safe_peaks = []
@@ -129,6 +128,7 @@ def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_
 
     # Refining
     if refine_ms is not None:
+        period_ms = (1 / sample_rate) * 1000
         refine_area = int((refine_ms / period_ms) / 2)
         refined_peaks = []
         for qrs_peak in qrs_peaks:
@@ -137,6 +137,7 @@ def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_
 
     #  R Peaks an Grid anpassen
     if adapt_to_ms is not False:
+        period_ms = ((1 / sample_rate) * 1000)
         return [qrs_peak * period_ms for qrs_peak in qrs_peaks]
     else:
         return qrs_peaks
