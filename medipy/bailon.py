@@ -4,9 +4,10 @@ bailon.py
 Interpolation by IPFM Model (Interpolate N-Peaks and Differentiate them) from Hernando et al 2016 and Bailon et al 2011
 
 '''
-from scipy.interpolate import CubicSpline
+
 import numpy as np
 from scipy.signal import kaiserord, lfilter, firwin, freqz
+from scipy.interpolate import CubicSpline
 
 
 def tvipfm_interpolation(n_peaks_digits, sample_rate=250):
