@@ -35,7 +35,7 @@ def preprocessing(samples, sample_rate):
     return samples_ma
 
 
-def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3, refine_ms=24, adapt_to_ms=False):
+def detect_r_peaks(samples, preprocessed, sample_rate, least_distance=0.2, th_coefficient=0.189, th_search_back=0.3):
     '''
     This method by hamilton detects all r-peaks of an ecg signal
     '''
@@ -120,24 +120,21 @@ def r_peak_detection(samples, preprocessed, sample_rate, least_distance=0.2, th_
                 threshold = noisy_peaks_average + th_coefficient * (safe_peaks_average - noisy_peaks_average)  # Noisy Peaks Average + 0.45 Parameter * (True Peaks Average - Noisy Peaks Average)
                 counter += 1
 
-    # Initial Phase
-    # Remove the inital value + 2 first detected peaks
-    qrs_peaks.pop(0)
-    qrs_peaks.pop(0)
+    # Remove the inital value
     qrs_peaks.pop(0)
 
-    # Refining
-    if refine_ms is not None:
-        period_ms = (1 / sample_rate) * 1000
-        refine_area = int((refine_ms / period_ms) / 2)
-        refined_peaks = []
-        for qrs_peak in qrs_peaks:
-            refined_peaks.append(np.argmax(samples[qrs_peak - refine_area:qrs_peak + refine_area]) + (qrs_peak - refine_area))
-        qrs_peaks = refined_peaks
+    return qrs_peaks
 
-    #  R Peaks an Grid anpassen
-    if adapt_to_ms is not False:
-        period_ms = ((1 / sample_rate) * 1000)
-        return [qrs_peak * period_ms for qrs_peak in qrs_peaks]
-    else:
-        return qrs_peaks
+
+def refine_r_peaks(samples, qrs_peaks, refine_samples):
+    '''
+    Refines the QRS peaks by looking at the samples around the peak and taking the maximum value as the new peak.
+    '''
+    # Refining the peaks
+    refine_area = int(refine_samples / 2)
+    refined_peaks = []
+    for qrs_peak in qrs_peaks:
+        refined_peaks.append(np.argmax(samples[qrs_peak - refine_area:qrs_peak + refine_area]) + (qrs_peak - refine_area))
+    qrs_peaks = refined_peaks
+
+    return qrs_peaks

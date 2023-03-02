@@ -1,5 +1,5 @@
 '''
-kubios.py
+lipponen.py
 '''
 
 import math
@@ -8,7 +8,7 @@ import numpy as np
 
 def rr_interval_error_detection(rr_intervals_list):
     '''
-    This method detects errors of a given rr interval list with an modified version of Lipponen and Tarvainen (Kubios) algorithm
+    This method detects errors of a given rr interval list with an modified version of Lipponen and Tarvainen  algorithm
     '''
     # Preparation
 
@@ -123,7 +123,7 @@ def rr_interval_error_detection(rr_intervals_list):
                     eq7 = rr_intervals[index] / medrr_intervals[index] > 2
                     if eq7:  # Missed
                         weight = math.floor(np.divide(rr_intervals[index], medrr_intervals[index]))
-                        missed_intervals[index] = int(weight)
+                        missed_intervals[index] = int(weight)  # missed intervals have bigger impact on the error
                         rr_errors[index] = int(weight)
                         index += 1
                         continue

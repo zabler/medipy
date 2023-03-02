@@ -13,6 +13,7 @@ setuptools.setup(
     install_requires=[
         'numpy>=1.21.4',
         'scipy>=1.7.3',
+        'matplotlib>=3.5.0',
     ],
     keywords=["medical", "signals", "algorithm"],
     classifiers=[
