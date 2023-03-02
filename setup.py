@@ -1,7 +1,7 @@
 import setuptools
 
 setuptools.setup(
-    name="medipy",
+    name="medipy_zabler_pypi_test",
     version="0.0.1",
     author="Nicolas Zabler",
     author_email="neutralecho22@icloud.com",
@@ -9,7 +9,7 @@ setuptools.setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/zabler/medipy",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(exclude=["*tests.*", "*tests"]),
     install_requires=[
         'numpy>=1.21.4',
         'scipy>=1.7.3',
