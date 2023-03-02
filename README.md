@@ -8,8 +8,8 @@ This Python package provides a broad collection of code for processing and analy
 
 ## Implemented Code
 These are the current modules which are implemented in this package:
-- R-Peak-Detection for 1D ECG Signals ([Hamilton](src/medipy/hamilton.py))
-- RR-Interval-Error-Detection for 1D ECG Signals ([Lipponen](src/medipy/lipponen.py))
+- R-Peak-Detection for 1D ECG Signals by [Hamilton](src/medipy/hamilton.py)
+- RR-Interval-Error-Detection for 1D ECG Signals by [Lipponen](src/medipy/lipponen.py)
 
 ## Installation
 You can install the package using pip:
