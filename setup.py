@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="medipy",
-    version="0.0.1",
+    version="0.0.6",
     author="Nicolas Zabler",
     author_email="neutralecho22@icloud.com",
     description="Code Collection for Medical Data Processing and Analysis",
