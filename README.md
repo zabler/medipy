@@ -4,7 +4,7 @@ Code Collection for Medical Data Processing and Analysis in Python
 [![Version](https://img.shields.io/pypi/v/medipy.svg)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-This Python package provides a broad collection of code for processing and analyzing medical data (like ECG, EEG, ACC, EMG, GYRO, ..). Every modul reflects a model, algorithm or concept published in scientific journal (or similiar) and is named after its main author. The publications are cited in the docstring of each modul.
+This Python package provides a broad collection of code for processing and analyzing medical data (like ECG, EEG, ACC, EMG, GYRO, ..). Every modul reflects a model, algorithm or concept published in a scientific journal (or similiar) and it is named after its main author. The publications are cited in the docstring of each modul.
 
 ## Implemented Code
 These are the current modules which are implemented in this package:
