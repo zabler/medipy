@@ -1,7 +1,7 @@
 import math
-import hamilton
-import lipponen
-import matplotlib.pyplot as plt
+from ..medipy import hamilton
+from ..medipy import lipponen
+from matplotlib import pyplot as plt
 from scipy.misc import electrocardiogram
 
 # Load ECG Data using scipy

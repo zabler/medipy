@@ -1,4 +1,4 @@
 matplotlib==3.5.0
 numpy==1.21.4
 scipy==1.7.3
-setuptools==56.0.0
+setuptools==67.4.0

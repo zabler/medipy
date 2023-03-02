@@ -1,7 +1,7 @@
 import setuptools
 
 setuptools.setup(
-    name="medipy_zabler_pypi_test",
+    name="medipy",
     version="0.0.1",
     author="Nicolas Zabler",
     author_email="neutralecho22@icloud.com",
@@ -9,13 +9,14 @@ setuptools.setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/zabler/medipy",
-    packages=setuptools.find_packages(exclude=["*tests.*", "*tests"]),
+    packages=setuptools.find_packages('src', exclude=["*tests.*", "*tests", "*example.*"]),
+    package_dir={'': 'src'},
     install_requires=[
         'numpy>=1.21.4',
         'scipy>=1.7.3',
         'matplotlib>=3.5.0',
     ],
-    keywords=["medical", "signals", "algorithm"],
+    keywords=["medical", "signals", "analysis", "processing"],
     classifiers=[
         "Intended Audience :: Science/Research",
         "Programming Language :: Python :: 3.8",

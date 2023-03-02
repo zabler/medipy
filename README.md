@@ -24,7 +24,7 @@ You can use any function of this package by either importing the complete packag
 import medipy as mp
 r_peaks= mp.hamilton.detect_r_peaks(ecg, sampling_rate)
 ```
-or the single modules
+or single modules
 
 ```python
 from medipy import hamilton
@@ -34,9 +34,9 @@ r_peaks= hamilton.detect_r_peaks(ecg, sampling_rate)
 ## Example
 ```python
 import math
-import hamilton
-import lipponen
-import matplotlib.pyplot as plt
+from medipy import hamilton
+from medipy import lipponen
+from matplotlib import pyplot as plt
 from scipy.misc import electrocardiogram
 
 # Load ECG Data using scipy
