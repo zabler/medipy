@@ -1,25 +1,21 @@
 import setuptools
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
-
 setuptools.setup(
     name="medipy",
-    version="0.1.0",
+    version="0.0.1",
     author="Nicolas Zabler",
-    # author_email="neutral",
-    description="Signal Analysis Package for Medical Data Analysis written in Python",
-    long_description=long_description,
+    author_email="neutralecho22@icloud.com",
+    description="Code Collection for Medical Data Processing and Analysis",
+    long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/zabler/medipy",
     packages=setuptools.find_packages(),
     install_requires=[
-        "numpy",
-        "pandas",
-        "scikit-learn"
+        'numpy>=1.21.4',
+        'scipy>=1.7.3',
     ],
+    keywords=["medical", "signals", "algorithm"],
     classifiers=[
-        "Development Status :: 1 - Planning",
         "Intended Audience :: Science/Research",
         "Programming Language :: Python :: 3.8",
         "License :: OSI Approved :: MIT License",
