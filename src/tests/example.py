@@ -1,6 +1,6 @@
 import math
-from ..medipy import hamilton
-from ..medipy import lipponen
+from medipy import hamilton
+from medipy import lipponen
 from matplotlib import pyplot as plt
 from scipy.misc import electrocardiogram
 

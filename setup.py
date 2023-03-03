@@ -4,7 +4,7 @@ setuptools.setup(
     name="medipy",
     version="0.0.6",
     author="Nicolas Zabler",
-    author_email="neutralecho22@icloud.com",
+    author_email="nico.zabler@icloud.com",
     description="Code Collection for Medical Data Processing and Analysis",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
